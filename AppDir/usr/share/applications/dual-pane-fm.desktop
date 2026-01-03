@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Dual-Pane File Manager
+Comment=A modern dual-pane file manager built with Rust
+Exec=dual-pane-fm-gui
+Icon=dual-pane-fm
+Categories=System;FileTools;FileManager;
+Terminal=false
+StartupNotify=true

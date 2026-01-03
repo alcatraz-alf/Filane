@@ -1,0 +1,7 @@
+/target
+/docs
+*.AppImage
+*.exe
+*.sh
+.kodezi-cli/
+squashfs-root/
