@@ -1,7 +1,10 @@
 /target
 /docs
-*.AppImage
 *.exe
 *.sh
 .kodezi-cli/
 squashfs-root/
+
+# Allow AppImage releases
+!releases/
+!releases/**/*.AppImage

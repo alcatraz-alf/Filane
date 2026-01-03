@@ -151,7 +151,15 @@ Filane is a modern dual-pane file manager built with Rust, featuring two efficie
 
 ### Installation & Running
 
-#### Quick Install (Linux)
+#### Download AppImage (Linux)
+
+**📥 [Download Filane-Dual_Pane_File_Manager-0.1.0-x86_64.AppImage](releases/Filane-Dual_Pane_File_Manager-0.1.0-x86_64.AppImage)** (8.5 MB)
+
+For installation instructions, see [releases/README.md](releases/README.md)
+
+---
+
+#### Build from Source (Linux)
 
 **Automatic Installation:**
 ```bash
@@ -312,6 +320,14 @@ dual-pane-fm/
 - `dirs` - Cross-platform home directory detection
 - `chrono` - Date and time handling
 
+### Support & Donation
+
+If you enjoy using Filane and would like to support its development, please consider making a donation. Your support helps us continue improving and adding new features!
+
+**Donate via PayPal:** https://www.paypal.com/paypalme/AchmadFachrie
+
+Every contribution, no matter the amount, is greatly appreciated and helps keep this project alive and growing! ☕
+
 ### License
 
 MIT
@@ -463,7 +479,15 @@ Filane adalah file manager modern dengan dual-pane yang dibangun dengan Rust, me
 
 ### Instalasi & Menjalankan
 
-#### Instalasi Cepat (Linux)
+#### Download AppImage (Linux)
+
+**📥 [Download Filane-Dual_Pane_File_Manager-0.1.0-x86_64.AppImage](releases/Filane-Dual_Pane_File_Manager-0.1.0-x86_64.AppImage)** (8.5 MB)
+
+Untuk petunjuk instalasi, lihat [releases/README.md](releases/README.md)
+
+---
+
+#### Build dari Source (Linux)
 
 **Instalasi Otomatis:**
 ```bash
@@ -623,6 +647,14 @@ dual-pane-fm/
 - `anyhow` - Error handling
 - `dirs` - Cross-platform home directory detection
 - `chrono` - Date and time handling
+
+### Dukungan & Donasi
+
+Jika Anda menikmati menggunakan Filane dan ingin mendukung pengembangan aplikasi ini, silakan pertimbangkan untuk memberikan donasi. Dukungan Anda membantu kami terus meningkatkan dan menambahkan fitur baru!
+
+**Donasi via PayPal:** https://www.paypal.com/paypalme/AchmadFachrie
+
+Setiap kontribusi, tidak peduli jumlahnya, sangat kami hargai dan membantu menjaga proyek ini tetap hidup dan berkembang! ☕
 
 ### License
 
