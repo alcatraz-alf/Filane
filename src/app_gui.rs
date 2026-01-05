@@ -1700,7 +1700,7 @@ impl eframe::App for FileManagerApp {
                         );
                         ui.add_space(5.0);
                         ui.label(
-                            egui::RichText::new("Version 0.1.0")
+                            egui::RichText::new(format!("Version {}", env!("CARGO_PKG_VERSION")))
                                 .size(12.0)
                                 .color(visuals.widgets.noninteractive.fg_stroke.color),
                         );
@@ -1735,12 +1735,6 @@ impl eframe::App for FileManagerApp {
                                 self.status_message = "Opening PayPal donation page...".to_string();
                             }
                         }
-                        ui.add_space(5.0);
-                        ui.label(
-                            egui::RichText::new("alfachrie@gmail.com")
-                                .size(11.0)
-                                .color(egui::Color32::GRAY),
-                        );
                         ui.add_space(20.0);
                         if ui
                             .add_sized(
@@ -4242,25 +4236,24 @@ impl FileManagerApp {
                             let mut remove_index: Option<usize> = None;
 
                             for (_idx, bookmark) in bookmarks.iter().enumerate() {
-                                ui.horizontal(|ui| {
-                                    let text = format!("{} {}", bookmark.icon, bookmark.name);
-                                    let response = ui.add(
-                                        egui::Button::new(egui::RichText::new(text).size(14.0))
-                                            .frame(false)
-                                            .min_size(egui::vec2(ui.available_width() - 30.0, 32.0)),
-                                    );
+                                let text = format!("{} {}", bookmark.icon, bookmark.name);
+                                let response = ui.add(
+                                    egui::Button::new(egui::RichText::new(text).size(14.0))
+                                        .frame(false)
+                                        .min_size(egui::vec2(ui.available_width(), 32.0)),
+                                );
 
-                                    if response.clicked() {
-                                        let path = bookmark.path.clone();
-                                        let _ = self.get_active_pane_mut().navigate_to(path.clone());
-                                        self.status_message =
-                                            format!("Navigated to {}", path.display());
-                                    }
+                                if response.clicked() {
+                                    let path = bookmark.path.clone();
+                                    let _ = self.get_active_pane_mut().navigate_to(path.clone());
+                                    self.status_message =
+                                        format!("Navigated to {}", path.display());
+                                }
 
-                                    if ui.add_sized([24.0, 24.0], egui::Button::new(egui::RichText::new("✗").size(13.0))).clicked() {
-                                        remove_index = Some(_idx);
-                                    }
-                                });
+                                // Right-click to remove
+                                if response.secondary_clicked() {
+                                    remove_index = Some(_idx);
+                                }
                             }
 
                             if let Some(idx) = remove_index {
