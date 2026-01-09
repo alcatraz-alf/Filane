@@ -26,6 +26,8 @@ pub struct Pane {
     pub history: Vec<PathBuf>,
     pub history_index: usize,
     pub git_repo_path: Option<PathBuf>,
+    pub selected_items: Vec<usize>,
+    pub selection_anchor: Option<usize>,
 }
 
 impl Pane {
@@ -43,6 +45,8 @@ impl Pane {
             history: vec![path],
             history_index: 0,
             git_repo_path,
+            selected_items: Vec::new(),
+            selection_anchor: None,
         };
         pane.refresh()?;
         Ok(pane)
@@ -117,6 +121,61 @@ impl Pane {
     pub fn move_down(&mut self) {
         if self.selected_index < self.items.len().saturating_sub(1) {
             self.selected_index += 1;
+        }
+    }
+
+    pub fn move_up_with_selection(&mut self) {
+        if self.selection_anchor.is_none() {
+            self.selection_anchor = Some(self.selected_index);
+        }
+        
+        if self.selected_index > 0 {
+            self.selected_index -= 1;
+            self.update_selection_range();
+        }
+    }
+
+    pub fn move_down_with_selection(&mut self) {
+        if self.selection_anchor.is_none() {
+            self.selection_anchor = Some(self.selected_index);
+        }
+        
+        if self.selected_index < self.items.len().saturating_sub(1) {
+            self.selected_index += 1;
+            self.update_selection_range();
+        }
+    }
+
+    fn update_selection_range(&mut self) {
+        if let Some(anchor) = self.selection_anchor {
+            self.selected_items.clear();
+            let start = anchor.min(self.selected_index);
+            let end = anchor.max(self.selected_index);
+            self.selected_items = (start..=end).collect();
+        }
+    }
+
+    pub fn clear_selection(&mut self) {
+        self.selected_items.clear();
+        self.selection_anchor = None;
+    }
+
+    pub fn is_item_selected(&self, index: usize) -> bool {
+        self.selected_items.contains(&index)
+    }
+
+    pub fn get_selected_items(&self) -> Vec<&FileItem> {
+        if self.selected_items.is_empty() {
+            if let Some(item) = self.items.get(self.selected_index) {
+                vec![item]
+            } else {
+                Vec::new()
+            }
+        } else {
+            self.selected_items
+                .iter()
+                .filter_map(|&idx| self.items.get(idx))
+                .collect()
         }
     }
 

@@ -64,6 +64,18 @@ impl App {
         self.get_active_pane_mut().move_down();
     }
 
+    pub fn move_up_with_selection(&mut self) {
+        self.get_active_pane_mut().move_up_with_selection();
+    }
+
+    pub fn move_down_with_selection(&mut self) {
+        self.get_active_pane_mut().move_down_with_selection();
+    }
+
+    pub fn clear_selection(&mut self) {
+        self.get_active_pane_mut().clear_selection();
+    }
+
     pub fn enter_directory(&mut self) -> Result<()> {
         self.get_active_pane_mut().enter_directory()
     }
@@ -95,18 +107,49 @@ impl App {
     }
 
     pub fn delete_file(&mut self) -> Result<()> {
-        let active_pane = self.get_active_pane_mut();
+        let items_to_delete: Vec<_> = self.get_active_pane()
+            .get_selected_items()
+            .iter()
+            .filter(|item| item.name != "..")
+            .map(|item| (item.path.clone(), item.is_dir))
+            .collect();
 
-        if let Some(item) = active_pane.get_selected_item().cloned() {
-            if item.name != ".." {
-                if item.is_dir {
-                    fs::remove_dir_all(&item.path)?;
-                } else {
-                    fs::remove_file(&item.path)?;
-                }
-                active_pane.refresh()?;
+        for (path, is_dir) in items_to_delete {
+            if is_dir {
+                fs::remove_dir_all(&path)?;
+            } else {
+                fs::remove_file(&path)?;
             }
         }
+
+        let active_pane = self.get_active_pane_mut();
+        active_pane.clear_selection();
+        active_pane.refresh()?;
+        Ok(())
+    }
+
+    pub fn move_files(&mut self) -> Result<()> {
+        let source_items: Vec<_> = self.get_active_pane()
+            .get_selected_items()
+            .iter()
+            .filter(|item| item.name != "..")
+            .map(|item| (item.path.clone(), item.name.clone()))
+            .collect();
+
+        let target_path = if self.active_pane == 0 {
+            self.right_pane.current_path.clone()
+        } else {
+            self.left_pane.current_path.clone()
+        };
+
+        for (source_path, name) in source_items {
+            let dest_path = target_path.join(&name);
+            fs::rename(&source_path, &dest_path)?;
+        }
+
+        self.get_active_pane_mut().clear_selection();
+        self.left_pane.refresh()?;
+        self.right_pane.refresh()?;
         Ok(())
     }
 

@@ -3,7 +3,7 @@ use dual_pane_fm::{app, ui};
 use anyhow::Result;
 use app::App;
 use crossterm::{
-    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
@@ -51,11 +51,27 @@ fn run_app<B: ratatui::backend::Backend>(terminal: &mut Terminal<B>, app: &mut A
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
+                    let shift_pressed = key.modifiers.contains(KeyModifiers::SHIFT);
+                    
                     match key.code {
                         KeyCode::Char('q') => app.quit(),
                         KeyCode::Char('m') => app.toggle_mounts(),
-                        KeyCode::Up | KeyCode::Char('k') => app.move_up(),
-                        KeyCode::Down | KeyCode::Char('j') => app.move_down(),
+                        KeyCode::Up | KeyCode::Char('k') => {
+                            if shift_pressed {
+                                app.move_up_with_selection();
+                            } else {
+                                app.clear_selection();
+                                app.move_up();
+                            }
+                        }
+                        KeyCode::Down | KeyCode::Char('j') => {
+                            if shift_pressed {
+                                app.move_down_with_selection();
+                            } else {
+                                app.clear_selection();
+                                app.move_down();
+                            }
+                        }
                         KeyCode::Enter => {
                             let _ = app.enter_directory();
                         }
@@ -66,10 +82,14 @@ fn run_app<B: ratatui::backend::Backend>(terminal: &mut Terminal<B>, app: &mut A
                         KeyCode::Char('c') => {
                             let _ = app.copy_file();
                         }
+                        KeyCode::Char('v') => {
+                            let _ = app.move_files();
+                        }
                         KeyCode::Delete | KeyCode::Char('d') => {
                             let _ = app.delete_file();
                         }
                         KeyCode::Char(' ') => app.toggle_preview(),
+                        KeyCode::Esc => app.clear_selection(),
                         _ => {}
                     }
                 }

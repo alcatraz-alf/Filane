@@ -28,9 +28,8 @@ pub fn draw(f: &mut Frame, app: &App) {
         ])
         .split(f.size());
 
-    // Title bar
     let title = Paragraph::new(
-        "Filane - Dual Pane FM - Tab: Switch | Enter: Open | Space: Preview | m: Mounts | q: Quit | r: Refresh",
+        "Filane - Dual Pane FM - Tab: Switch | Shift+↑↓: Multi-select | v: Move | d: Delete | Space: Preview | m: Mounts | q: Quit",
     )
     .style(Style::default().fg(Color::Cyan));
     f.render_widget(title, chunks[0]);
@@ -281,7 +280,10 @@ fn draw_pane(f: &mut Frame, app: &App, area: Rect, pane_index: usize) {
 
             let content = format!("{} {:<40} {:>10}", icon, item.name, size_str);
 
-            let style = if i == pane.selected_index {
+            let is_selected = i == pane.selected_index;
+            let is_multi_selected = pane.is_item_selected(i);
+
+            let style = if is_selected {
                 if is_active {
                     Style::default()
                         .fg(Color::Black)
@@ -290,6 +292,10 @@ fn draw_pane(f: &mut Frame, app: &App, area: Rect, pane_index: usize) {
                 } else {
                     Style::default().fg(Color::Black).bg(Color::Gray)
                 }
+            } else if is_multi_selected {
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::Cyan)
             } else {
                 Style::default()
             };

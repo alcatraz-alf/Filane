@@ -390,21 +390,31 @@ impl FileManagerApp {
     }
 
     pub fn delete_selected_file(&mut self) -> Result<()> {
-        let item = self.get_active_pane().get_selected_item().cloned();
+        let items_to_delete: Vec<_> = self.get_active_pane()
+            .get_selected_items()
+            .iter()
+            .filter(|item| item.name != "..")
+            .map(|item| (item.path.clone(), item.is_dir, item.name.clone()))
+            .collect();
 
-        if let Some(item) = item {
-            if item.name != ".." {
-                let msg = if item.is_dir {
-                    fs::remove_dir_all(&item.path)?;
-                    format!("Deleted directory: {}", item.name)
-                } else {
-                    fs::remove_file(&item.path)?;
-                    format!("Deleted file: {}", item.name)
-                };
-                self.status_message = msg;
-                self.get_active_pane_mut().refresh()?;
+        let mut deleted_count = 0;
+        for (path, is_dir, name) in items_to_delete {
+            if is_dir {
+                fs::remove_dir_all(&path)?;
+            } else {
+                fs::remove_file(&path)?;
             }
+            deleted_count += 1;
         }
+
+        self.status_message = if deleted_count == 1 {
+            format!("Deleted 1 item")
+        } else {
+            format!("Deleted {} items", deleted_count)
+        };
+        
+        self.get_active_pane_mut().clear_selection();
+        self.get_active_pane_mut().refresh()?;
         Ok(())
     }
 
@@ -3422,6 +3432,9 @@ impl FileManagerApp {
                 let text_height = 28.0; // Smaller row height for compact view
                 let table_width = ui.available_width();
                 
+                // Capture shift state before entering closures
+                let shift_pressed = ctx.input(|i| i.modifiers.shift);
+                
                 // Use allocate_ui to constrain the table width
                 ui.allocate_ui(egui::Vec2::new(table_width, ui.available_height()), |ui| {
                     ui.set_max_width(table_width);
@@ -3528,9 +3541,10 @@ impl FileManagerApp {
                             };
 
                             let is_selected = i == selected_index;
+                            let pane = if pane_index == 0 { &self.left_pane } else { &self.right_pane };
+                            let is_multi_selected = pane.is_item_selected(i);
                             
-                            // Highlight selection
-                            row.set_selected(is_selected); 
+                            row.set_selected(is_selected || is_multi_selected); 
 
                             // Name Column
                             row.col(|ui| {
@@ -3566,7 +3580,21 @@ impl FileManagerApp {
                             let response = row.response();
                             if response.clicked() {
                                 let pane = if pane_index == 0 { &mut self.left_pane } else { &mut self.right_pane };
-                                pane.selected_index = i;
+                                
+                                if shift_pressed {
+                                    if pane.selection_anchor.is_none() {
+                                        pane.selection_anchor = Some(pane.selected_index);
+                                    }
+                                    pane.selected_index = i;
+                                    let anchor = pane.selection_anchor.unwrap();
+                                    let start = anchor.min(i);
+                                    let end = anchor.max(i);
+                                    pane.selected_items = (start..=end).collect();
+                                } else {
+                                    pane.clear_selection();
+                                    pane.selected_index = i;
+                                }
+                                
                                 self.active_pane = pane_index;
                                 if self.show_preview_panel { self.update_previews(); }
                             }
@@ -3615,15 +3643,28 @@ impl FileManagerApp {
 
     fn handle_keyboard(&mut self, ctx: &egui::Context) {
         ctx.input(|i| {
-            // Navigation
+            let shift_pressed = i.modifiers.shift;
+            
             if i.key_pressed(egui::Key::ArrowUp) {
-                self.get_active_pane_mut().move_up();
+                let pane = self.get_active_pane_mut();
+                if shift_pressed {
+                    pane.move_up_with_selection();
+                } else {
+                    pane.clear_selection();
+                    pane.move_up();
+                }
                 if self.show_preview_panel {
                     self.update_previews();
                 }
             }
             if i.key_pressed(egui::Key::ArrowDown) {
-                self.get_active_pane_mut().move_down();
+                let pane = self.get_active_pane_mut();
+                if shift_pressed {
+                    pane.move_down_with_selection();
+                } else {
+                    pane.clear_selection();
+                    pane.move_down();
+                }
                 if self.show_preview_panel {
                     self.update_previews();
                 }
@@ -3632,6 +3673,10 @@ impl FileManagerApp {
                 if let Err(e) = self.get_active_pane_mut().enter_directory() {
                     self.status_message = format!("Error: {}", e);
                 }
+            }
+            
+            if i.key_pressed(egui::Key::Escape) {
+                self.get_active_pane_mut().clear_selection();
             }
 
             // Tab to switch panes
@@ -3686,8 +3731,15 @@ impl FileManagerApp {
 
             // F8 - Delete (Total Commander style)
             if i.key_pressed(egui::Key::F8) {
-                if let Some(item) = self.get_active_pane().get_selected_item() {
-                    self.item_to_delete = Some(item.name.clone());
+                let selected_items = self.get_active_pane().get_selected_items();
+                if !selected_items.is_empty() {
+                    let count = selected_items.len();
+                    let names: Vec<String> = selected_items.iter().map(|item| item.name.clone()).collect();
+                    self.item_to_delete = Some(if count == 1 {
+                        names[0].clone()
+                    } else {
+                        format!("{} items", count)
+                    });
                     self.show_delete_confirm = true;
                 }
             }
