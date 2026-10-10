@@ -3,6 +3,17 @@
 ## Unreleased
 
 ### New Features
+- ⚡ **Background File Operations** - Copy, move, compress dan extract berjalan di background thread
+  - Progress dialog real-time (persentase, jumlah file, ukuran bytes)
+  - Tombol Cancel (atau tekan ESC) untuk membatalkan operasi
+  - UI tetap responsif saat operasi besar berjalan
+  - Ganti operasi sinkron yang sebelumnya memblokir UI
+- 🔍 **Fuzzy Filter** - Filter nama file dengan pencocokan fuzzy (subsequence ala fzf)
+  - Contoh: ketik `ctm` akan cocok dengan `Cargo.toml`
+  - Substring match tetap jadi fast path; fuzzy sebagai fallback
+- 📦 **Tar/Tar.gz Support** - Compress & extract `.tar`, `.tar.gz`, `.tgz` (selain `.zip`)
+  - Context menu "Extract Archive" otomatis mendeteksi format dari ekstensi
+  - `compress_to_tar_gz()`, `compress_to_tar()`, `extract_tar_archive()` di `filesystem.rs`
 - ✅ **Mount Points Viewer** - View and access all mount points and storage devices
   - Auto-detection of all system mount points
   - Display device info (name, filesystem type, disk type)
@@ -15,6 +26,7 @@
 
 ### Dependencies
 - Added `sysinfo` v0.30 for system disk information
+- Added `tar` v0.4 dan `flate2` v1.0 untuk dukungan arsip tar/tar.gz
 
 ## v0.1.0 - Initial Release
 

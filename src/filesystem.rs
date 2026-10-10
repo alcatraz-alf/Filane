@@ -273,6 +273,86 @@ pub fn is_archive(path: &Path) -> bool {
     }
 }
 
+/// Returns true if the file is a .tar.gz or .tgz archive
+pub fn is_tar_gz(path: &Path) -> bool {
+    let name = path.file_name().map(|n| n.to_string_lossy().to_lowercase());
+    match name {
+        Some(n) => n.ends_with(".tar.gz") || n.ends_with(".tgz"),
+        None => false,
+    }
+}
+
+/// Returns true if the file is a plain .tar archive
+pub fn is_tar(path: &Path) -> bool {
+    path.extension()
+        .map(|e| e.to_string_lossy().to_lowercase() == "tar")
+        .unwrap_or(false)
+}
+
+pub fn compress_to_tar_gz(source_path: &Path, dest_tar: &Path) -> Result<()> {
+    let file = std::fs::File::create(dest_tar)?;
+    let enc = flate2::write::GzEncoder::new(file, flate2::Compression::default());
+    let mut tar = tar::Builder::new(enc);
+    tar.follow_symlinks(false);
+
+    let base_name = source_path
+        .file_name()
+        .ok_or_else(|| anyhow::anyhow!("Invalid filename"))?
+        .to_string_lossy()
+        .to_string();
+
+    if source_path.is_file() {
+        tar.append_path_with_name(source_path, base_name.as_str())?;
+    } else if source_path.is_dir() {
+        tar.append_dir_all(&base_name, source_path)?;
+    } else {
+        anyhow::bail!("Source is neither a file nor a directory");
+    }
+
+    tar.into_inner()?.finish()?;
+    Ok(())
+}
+
+pub fn compress_to_tar(source_path: &Path, dest_tar: &Path) -> Result<()> {
+    let file = std::fs::File::create(dest_tar)?;
+    let mut tar = tar::Builder::new(file);
+    tar.follow_symlinks(false);
+
+    let base_name = source_path
+        .file_name()
+        .ok_or_else(|| anyhow::anyhow!("Invalid filename"))?
+        .to_string_lossy()
+        .to_string();
+
+    if source_path.is_file() {
+        tar.append_path_with_name(source_path, base_name.as_str())?;
+    } else if source_path.is_dir() {
+        tar.append_dir_all(&base_name, source_path)?;
+    } else {
+        anyhow::bail!("Source is neither a file nor a directory");
+    }
+
+    tar.finish()?;
+    Ok(())
+}
+
+pub fn extract_tar_archive(tar_path: &Path, dest_dir: &Path) -> Result<()> {
+    std::fs::create_dir_all(dest_dir)?;
+
+    if is_tar_gz(tar_path) {
+        let file = std::fs::File::open(tar_path)?;
+        let dec = flate2::read::GzDecoder::new(file);
+        let mut archive = tar::Archive::new(dec);
+        archive.unpack(dest_dir)?;
+    } else {
+        let file = std::fs::File::open(tar_path)?;
+        let mut archive = tar::Archive::new(file);
+        archive.unpack(dest_dir)?;
+    }
+
+    Ok(())
+}
+
 pub fn compress_to_zip(source_path: &Path, dest_zip: &Path) -> Result<()> {
     use std::io::Write;
 

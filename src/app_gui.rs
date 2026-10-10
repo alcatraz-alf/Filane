@@ -119,6 +119,9 @@ pub struct FileManagerApp {
     pub filter_pdf: bool,
     pub filter_doc: bool,
     pub filter_xls: bool,
+    pub op_runner: Option<crate::ops::OpRunner>,
+    pub show_progress_dialog: bool,
+    pub op_result_message: Option<String>,
 }
 
 #[derive(Clone)]
@@ -209,6 +212,64 @@ impl FileManagerApp {
             filter_pdf: false,
             filter_doc: false,
             filter_xls: false,
+            op_runner: None,
+            show_progress_dialog: false,
+            op_result_message: None,
+        }
+    }
+
+    pub fn start_operation(&mut self, op: crate::ops::Operation) {
+        if self.op_runner.is_some() {
+            self.status_message = "Another operation is already running".to_string();
+            return;
+        }
+        match crate::ops::OpRunner::start(op) {
+            Ok(runner) => {
+                self.op_runner = Some(runner);
+                self.show_progress_dialog = true;
+                self.op_result_message = None;
+            }
+            Err(e) => {
+                self.status_message = format!("❌ Failed to start operation: {}", e);
+            }
+        }
+    }
+
+    pub fn poll_operation(&mut self, ctx: &egui::Context) {
+        let mut finished = false;
+        if let Some(runner) = &self.op_runner {
+            ctx.request_repaint();
+            if runner.is_finished() {
+                finished = true;
+            }
+        }
+        if finished {
+            if let Some(mut runner) = self.op_runner.take() {
+                runner.join();
+                let snap = runner.snapshot();
+                if let Some(err) = &snap.error {
+                    self.status_message = format!("❌ {} failed: {}", snap.kind.label(), err);
+                    self.op_result_message = Some(format!("Operation failed: {}", err));
+                } else if snap.cancelled {
+                    self.status_message = "⚠️ Operation cancelled".to_string();
+                    self.op_result_message = Some("Operation cancelled".to_string());
+                } else {
+                    self.status_message = format!(
+                        "✅ {} complete: {} ({} files)",
+                        snap.kind.label(),
+                        snap.title,
+                        snap.files_total
+                    );
+                    self.op_result_message = Some(format!(
+                        "✅ Completed successfully\n\n{} → {}",
+                        snap.kind.label(),
+                        snap.title
+                    ));
+                }
+            }
+            self.show_progress_dialog = true; // keep dialog to show result
+            let _ = self.left_pane.refresh();
+            let _ = self.right_pane.refresh();
         }
     }
 
@@ -302,49 +363,62 @@ impl FileManagerApp {
                 .unwrap_or("unknown");
             let dest_path = target_path.join(file_name);
 
-            match operation {
-                ClipboardOperation::Copy => {
-                    if source_path.is_dir() {
-                        self.copy_dir_recursive(&source_path, &dest_path)?;
-                        self.status_message =
-                            format!("Copied directory: {} → {}", file_name, dest_path.display());
-                    } else {
-                        fs::copy(&source_path, &dest_path)?;
-                        self.status_message =
-                            format!("Copied: {} → {}", file_name, dest_path.display());
-                    }
-                }
-                ClipboardOperation::Cut => {
-                    fs::rename(&source_path, &dest_path)?;
-                    self.status_message = format!("Moved: {} → {}", file_name, dest_path.display());
-                    self.clipboard = None; // Clear clipboard after cut
-                }
+            if dest_path.exists() {
+                self.status_message =
+                    format!("❌ Destination already exists: {}", file_name);
+                anyhow::bail!("Destination already exists");
             }
 
-            // Refresh both panes
-            self.left_pane.refresh()?;
-            self.right_pane.refresh()?;
+            let op = match operation {
+                ClipboardOperation::Copy => crate::ops::Operation::Copy {
+                    sources: vec![source_path.clone()],
+                    dest: target_path,
+                },
+                ClipboardOperation::Cut => crate::ops::Operation::Move {
+                    sources: vec![source_path.clone()],
+                    dest: target_path,
+                },
+            };
+
+            // Cut clipboard is consumed; copy clipboard persists for repeated paste
+            if matches!(operation, ClipboardOperation::Cut) {
+                self.clipboard = None;
+            }
+            self.start_operation(op);
         } else {
             self.status_message = "Clipboard is empty".to_string();
         }
         Ok(())
     }
 
-    fn copy_dir_recursive(&self, src: &std::path::Path, dst: &std::path::Path) -> Result<()> {
-        fs::create_dir_all(dst)?;
-        for entry in fs::read_dir(src)? {
-            let entry = entry?;
-            let file_type = entry.file_type()?;
-            let src_path = entry.path();
-            let dst_path = dst.join(entry.file_name());
-
-            if file_type.is_dir() {
-                self.copy_dir_recursive(&src_path, &dst_path)?;
+    /// Transfer selected items from one pane to the other (background op).
+    /// `op` is Copy or Move; `from_pane` is 0 (left) or 1 (right).
+    pub fn transfer_selected(&mut self, from_pane: usize, op: crate::ops::Operation) {
+        let (sources, dest) = {
+            let (src_pane, dst_pane) = if from_pane == 0 {
+                (&self.left_pane, &self.right_pane)
             } else {
-                fs::copy(&src_path, &dst_path)?;
-            }
+                (&self.right_pane, &self.left_pane)
+            };
+            let sources: Vec<PathBuf> = src_pane
+                .get_selected_items()
+                .iter()
+                .filter(|item| item.name != "..")
+                .map(|item| item.path.clone())
+                .collect();
+            (sources, dst_pane.current_path.clone())
+        };
+
+        if sources.is_empty() {
+            self.status_message = "No items selected".to_string();
+            return;
         }
-        Ok(())
+
+        let op = match op {
+            crate::ops::Operation::Copy { .. } => crate::ops::Operation::Copy { sources, dest },
+            _ => crate::ops::Operation::Move { sources, dest },
+        };
+        self.start_operation(op);
     }
 
     pub fn open_file_with_default_app(&mut self) -> Result<()> {
@@ -430,16 +504,15 @@ impl FileManagerApp {
                     .unwrap_or(item.path.as_path())
                     .join(&zip_name);
 
-                match crate::filesystem::compress_to_zip(&item.path, &zip_path) {
-                    Ok(_) => {
-                        self.status_message =
-                            format!("✅ Compressed: {} → {}", item.name, zip_name);
-                        self.get_active_pane_mut().refresh()?;
-                    }
-                    Err(e) => {
-                        self.status_message = format!("❌ Compression failed: {}", e);
-                    }
+                if zip_path.exists() {
+                    self.status_message = format!("❌ Archive already exists: {}", zip_name);
+                    anyhow::bail!("Archive already exists");
                 }
+
+                self.start_operation(crate::ops::Operation::CompressZip {
+                    source: item.path.clone(),
+                    dest_zip: zip_path,
+                });
             }
         }
         Ok(())
@@ -453,17 +526,20 @@ impl FileManagerApp {
                 let extract_dir = item.path.parent().unwrap_or(item.path.as_path());
 
                 if item.name.ends_with(".zip") {
-                    match crate::filesystem::extract_zip(&item.path, extract_dir) {
-                        Ok(_) => {
-                            self.status_message = format!("✅ Extracted: {}", item.name);
-                            self.get_active_pane_mut().refresh()?;
-                        }
-                        Err(e) => {
-                            self.status_message = format!("❌ Extraction failed: {}", e);
-                        }
-                    }
+                    self.start_operation(crate::ops::Operation::ExtractZip {
+                        archive: item.path.clone(),
+                        dest_dir: extract_dir.to_path_buf(),
+                    });
+                } else if crate::filesystem::is_tar_gz(&item.path)
+                    || crate::filesystem::is_tar(&item.path)
+                {
+                    self.start_operation(crate::ops::Operation::ExtractTar {
+                        archive: item.path.clone(),
+                        dest_dir: extract_dir.to_path_buf(),
+                    });
                 } else {
-                    self.status_message = "Only .zip files are supported".to_string();
+                    self.status_message =
+                        "Only .zip, .tar.gz, .tgz and .tar files are supported".to_string();
                 }
             }
         }
@@ -548,6 +624,9 @@ impl FileManagerApp {
 
 impl eframe::App for FileManagerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Poll background operation
+        self.poll_operation(ctx);
+
         // Apply modern visual style
         ctx.set_visuals(self.get_modern_visuals());
         ctx.set_zoom_factor(1.1);
@@ -1338,13 +1417,17 @@ impl eframe::App for FileManagerApp {
                                         close_menu = true;
                                     }
 
-                                    // Extract (only for .zip files)
-                                    if !item.is_dir && item.name.ends_with(".zip") {
+                                    // Extract (for zip and tar/tar.gz archives)
+                                    if !item.is_dir
+                                        && (item.name.ends_with(".zip")
+                                            || crate::filesystem::is_tar_gz(&item.path)
+                                            || crate::filesystem::is_tar(&item.path))
+                                    {
                                         if ui
                                             .add_sized(
                                                 [ui.available_width(), 28.0],
                                                 egui::Button::new(
-                                                    egui::RichText::new("📦  Extract ZIP")
+                                                    egui::RichText::new("📦  Extract Archive")
                                                         .size(13.0),
                                                 )
                                                 .frame(false),
@@ -2696,6 +2779,157 @@ impl eframe::App for FileManagerApp {
                     });
                 });
         }
+
+        // Progress dialog for background file operations
+        if self.show_progress_dialog {
+            let snap = self.op_runner.as_ref().map(|r| r.snapshot());
+            if let Some(snap) = snap {
+                let running = !snap.finished;
+                let byte_pct = if snap.bytes_total > 0 {
+                    (snap.bytes_done as f32 / snap.bytes_total as f32).min(1.0)
+                } else if snap.finished {
+                    1.0
+                } else {
+                    0.0
+                };
+
+                let (icon, color) = if let Some(_err) = &snap.error {
+                    ("❌".to_string(), egui::Color32::from_rgb(242, 139, 130))
+                } else if snap.cancelled {
+                    ("⚠️".to_string(), egui::Color32::from_rgb(251, 188, 5))
+                } else if snap.finished {
+                    ("✅".to_string(), egui::Color32::from_rgb(129, 201, 149))
+                } else {
+                    (snap.kind.icon().to_string(), egui::Color32::from_rgb(138, 180, 248))
+                };
+
+                let err_text = snap.error.clone();
+
+                egui::Window::new(format!("{}  {}", icon, snap.kind.label()))
+                    .collapsible(false)
+                    .resizable(false)
+                    .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                    .frame(
+                        egui::Frame::window(&ctx.style())
+                            .fill(egui::Color32::from_rgb(45, 47, 50))
+                            .rounding(12.0)
+                            .shadow(egui::epaint::Shadow {
+                                offset: egui::vec2(0.0, 8.0),
+                                blur: 24.0,
+                                spread: 0.0,
+                                color: egui::Color32::from_black_alpha(120),
+                            })
+                            .inner_margin(20.0),
+                    )
+                    .show(ctx, |ui| {
+                        ui.style_mut()
+                            .visuals
+                            .widgets
+                            .noninteractive
+                            .fg_stroke
+                            .color = egui::Color32::from_rgb(232, 234, 237);
+                        ui.set_min_width(420.0);
+                        ui.vertical(|ui| {
+                            ui.add_space(6.0);
+                            ui.label(
+                                egui::RichText::new(&snap.title)
+                                    .size(15.0)
+                                    .strong()
+                                    .color(color),
+                            );
+                            ui.add_space(4.0);
+                            if running {
+                                ui.label(
+                                    egui::RichText::new(format!("📄 {}", snap.current_file))
+                                        .size(12.0)
+                                        .color(egui::Color32::from_rgb(160, 164, 170)),
+                                );
+                            }
+                            ui.add_space(10.0);
+                            ui.add(
+                                egui::ProgressBar::new(byte_pct).show_percentage(),
+                            );
+                            ui.add_space(4.0);
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    egui::RichText::new(format!(
+                                        "{} / {} files",
+                                        snap.files_done, snap.files_total
+                                    ))
+                                    .size(12.0)
+                                    .color(egui::Color32::from_rgb(160, 164, 170)),
+                                );
+                                if snap.bytes_total > 0 {
+                                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                        ui.label(
+                                            egui::RichText::new(format!(
+                                                "{:.1} MB / {:.1} MB",
+                                                snap.bytes_done as f64 / 1_048_576.0,
+                                                snap.bytes_total as f64 / 1_048_576.0
+                                            ))
+                                            .size(12.0)
+                                            .color(egui::Color32::from_rgb(160, 164, 170)),
+                                        );
+                                    });
+                                }
+                            });
+                            ui.add_space(14.0);
+                            ui.horizontal(|ui| {
+                                if running {
+                                    if ui
+                                        .add_sized(
+                                            [120.0, 34.0],
+                                            egui::Button::new(
+                                                egui::RichText::new("✗  Cancel").size(13.0),
+                                            )
+                                            .fill(egui::Color32::from_rgb(220, 53, 69))
+                                            .rounding(6.0),
+                                        )
+                                        .clicked()
+                                    {
+                                        if let Some(runner) = &self.op_runner {
+                                            runner.cancel();
+                                        }
+                                    }
+                                } else {
+                                    let msg = err_text.clone().unwrap_or_else(|| {
+                                        if snap.cancelled {
+                                            "Operation was cancelled".to_string()
+                                        } else {
+                                            "Completed successfully".to_string()
+                                        }
+                                    });
+                                    ui.label(
+                                        egui::RichText::new(msg)
+                                            .size(13.0)
+                                            .color(color),
+                                    );
+                                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                        if ui
+                                            .add_sized(
+                                                [100.0, 34.0],
+                                                egui::Button::new(
+                                                    egui::RichText::new("Close").size(13.0),
+                                                )
+                                                .fill(egui::Color32::from_rgb(66, 70, 77))
+                                                .rounding(6.0),
+                                            )
+                                            .clicked()
+                                        {
+                                            self.show_progress_dialog = false;
+                                            self.op_result_message = None;
+                                        }
+                                    });
+                                }
+                            });
+                            ui.add_space(4.0);
+                        });
+                    });
+            } else {
+                // Runner gone but dialog still shown - close it
+                self.show_progress_dialog = false;
+            }
+        }
         
     }
 }
@@ -3032,28 +3266,7 @@ impl FileManagerApp {
                 .clicked();
 
             if copy_l2r_clicked && copy_left_to_right_enabled {
-                if let Some(item) = self.left_pane.get_selected_item() {
-                    let source_path = item.path.clone();
-                    let dest_path = self.right_pane.current_path.join(&item.name);
-
-                    let result = if item.is_dir {
-                        self.copy_dir_recursive(&source_path, &dest_path)
-                    } else {
-                        fs::copy(&source_path, &dest_path)
-                            .map(|_| ())
-                            .map_err(|e| anyhow::Error::from(e))
-                    };
-
-                    match result {
-                        Ok(_) => {
-                            self.status_message = format!("Copied: {} → Right", item.name);
-                            let _ = self.right_pane.refresh();
-                        }
-                        Err(e) => {
-                            self.status_message = format!("Error copying: {}", e);
-                        }
-                    }
-                }
+                self.transfer_selected(0, crate::ops::Operation::Copy { sources: Vec::new(), dest: PathBuf::new() });
             }
 
             // Copy Right to Left button
@@ -3078,28 +3291,7 @@ impl FileManagerApp {
                 .clicked();
 
             if copy_r2l_clicked && copy_right_to_left_enabled {
-                if let Some(item) = self.right_pane.get_selected_item() {
-                    let source_path = item.path.clone();
-                    let dest_path = self.left_pane.current_path.join(&item.name);
-
-                    let result = if item.is_dir {
-                        self.copy_dir_recursive(&source_path, &dest_path)
-                    } else {
-                        fs::copy(&source_path, &dest_path)
-                            .map(|_| ())
-                            .map_err(|e| anyhow::Error::from(e))
-                    };
-
-                    match result {
-                        Ok(_) => {
-                            self.status_message = format!("Copied: {} → Left", item.name);
-                            let _ = self.left_pane.refresh();
-                        }
-                        Err(e) => {
-                            self.status_message = format!("Error copying: {}", e);
-                        }
-                    }
-                }
+                self.transfer_selected(1, crate::ops::Operation::Copy { sources: Vec::new(), dest: PathBuf::new() });
             }
 
             ui.add_space(20.0);
@@ -3126,27 +3318,7 @@ impl FileManagerApp {
                 .clicked();
 
             if move_l2r_clicked && move_left_to_right_enabled {
-                let (source_path, item_name, dest_dir) = {
-                    let item = self.left_pane.get_selected_item();
-                    let dest_dir = self.right_pane.current_path.clone();
-                    if let Some(item) = item {
-                        (item.path.clone(), item.name.clone(), dest_dir)
-                    } else {
-                        return;
-                    }
-                };
-
-                let dest_path = dest_dir.join(&item_name);
-                match fs::rename(&source_path, &dest_path) {
-                    Ok(_) => {
-                        self.status_message = format!("Moved: {} → Right", item_name);
-                        let _ = self.left_pane.refresh();
-                        let _ = self.right_pane.refresh();
-                    }
-                    Err(e) => {
-                        self.status_message = format!("Error moving: {}", e);
-                    }
-                }
+                self.transfer_selected(0, crate::ops::Operation::Move { sources: Vec::new(), dest: PathBuf::new() });
             }
 
             // Move Right to Left button
@@ -3171,27 +3343,7 @@ impl FileManagerApp {
                 .clicked();
 
             if move_r2l_clicked && move_right_to_left_enabled {
-                let (source_path, item_name, dest_dir) = {
-                    let item = self.right_pane.get_selected_item();
-                    let dest_dir = self.left_pane.current_path.clone();
-                    if let Some(item) = item {
-                        (item.path.clone(), item.name.clone(), dest_dir)
-                    } else {
-                        return;
-                    }
-                };
-
-                let dest_path = dest_dir.join(&item_name);
-                match fs::rename(&source_path, &dest_path) {
-                    Ok(_) => {
-                        self.status_message = format!("Moved: {} → Left", item_name);
-                        let _ = self.left_pane.refresh();
-                        let _ = self.right_pane.refresh();
-                    }
-                    Err(e) => {
-                        self.status_message = format!("Error moving: {}", e);
-                    }
-                }
+                self.transfer_selected(1, crate::ops::Operation::Move { sources: Vec::new(), dest: PathBuf::new() });
             }
         });
     }
@@ -3506,7 +3658,7 @@ impl FileManagerApp {
                             .enumerate()
                             .filter(|(_, item)| {
                                 if item.name == ".." { return true; }
-                                if !filter_text.is_empty() && !item.name.to_lowercase().contains(&filter_text) { return false; }
+                                if !filter_text.is_empty() && !crate::fuzzy::filter_match(&item.name, &filter_text) { return false; }
                                 if !self.should_show_file(item) { return false; }
                                 if self.show_hidden_files { true } else { !item.name.starts_with('.') }
                             })
@@ -3788,7 +3940,21 @@ impl FileManagerApp {
 
             // ESC - Exit filter mode or close dialogs
             if i.key_pressed(egui::Key::Escape) {
-                if self.filter_mode {
+                let op_running = self
+                    .op_runner
+                    .as_ref()
+                    .map(|r| !r.is_finished())
+                    .unwrap_or(false);
+                if op_running {
+                    // Cancel the running file operation
+                    if let Some(runner) = &self.op_runner {
+                        runner.cancel();
+                        self.status_message = "Cancelling operation...".to_string();
+                    }
+                } else if self.show_progress_dialog {
+                    self.show_progress_dialog = false;
+                    self.op_result_message = None;
+                } else if self.filter_mode {
                     self.filter_mode = false;
                     self.get_active_pane_mut().filter_text.clear();
                     self.status_message = "Filter cleared".to_string();

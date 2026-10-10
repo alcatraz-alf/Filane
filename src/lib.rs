@@ -2,6 +2,8 @@ pub mod app;
 pub mod app_gui;
 pub mod bookmarks;
 pub mod filesystem;
+pub mod fuzzy;
+pub mod ops;
 pub mod pane;
 pub mod pdf_renderer;
 pub mod trash;
