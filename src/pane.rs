@@ -2,14 +2,14 @@ use crate::filesystem::{FileItem, read_directory};
 use anyhow::Result;
 use std::path::PathBuf;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum SortBy {
     Name,
     Size,
     Date,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum SortOrder {
     Ascending,
     Descending,

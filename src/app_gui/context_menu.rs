@@ -33,6 +33,27 @@ impl FileManagerApp {
                                 egui::Color32::WHITE;
 
                             if let Some(item) = &item {
+                                // Restore option when browsing inside the trash
+                                if item.name != ".."
+                                    && crate::trash::is_trash_path(&self.get_active_pane().current_path.clone())
+                                {
+                                    if ui
+                                        .add_sized(
+                                            [ui.available_width(), 28.0],
+                                            egui::Button::new(
+                                                egui::RichText::new("↩  Restore to original location")
+                                                    .size(13.0),
+                                            )
+                                            .frame(false),
+                                        )
+                                        .clicked()
+                                    {
+                                        self.restore_trashed_item(&item.path, &item.name);
+                                        close_menu = true;
+                                    }
+                                    ui.separator();
+                                }
+
                                 // Open file option (for non-directories)
                                 if !item.is_dir && item.name != ".." {
                                     if ui
@@ -133,7 +154,23 @@ impl FileManagerApp {
                                         )
                                         .clicked()
                                     {
-                                        let _ = self.compress_item();
+                                        let _ = self.compress_item(super::ArchiveKind::Zip);
+                                        close_menu = true;
+                                    }
+
+                                    // Compress to TAR.GZ
+                                    if ui
+                                        .add_sized(
+                                            [ui.available_width(), 28.0],
+                                            egui::Button::new(
+                                                egui::RichText::new("🗜️  Compress to TAR.GZ")
+                                                    .size(13.0),
+                                            )
+                                            .frame(false),
+                                        )
+                                        .clicked()
+                                    {
+                                        let _ = self.compress_item(super::ArchiveKind::TarGz);
                                         close_menu = true;
                                     }
 

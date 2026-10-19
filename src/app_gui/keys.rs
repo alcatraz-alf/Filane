@@ -3,9 +3,68 @@ use egui;
 
 impl FileManagerApp {
     pub(crate) fn handle_keyboard(&mut self, ctx: &egui::Context) {
+        // While any text field is focused, shortcuts that use character keys
+        // (Space, Ctrl+C/V/X, Delete) must be ignored: typing a Space in the
+        // rename/new-folder dialog used to toggle the preview panel, and
+        // Ctrl+V inside a text field used to paste a file instead of text.
+        let text_focus = ctx.wants_keyboard_input();
+
         ctx.input(|i| {
             let shift_pressed = i.modifiers.shift;
-            
+
+            // Escape must always work: it closes dialogs even while the user
+            // is typing into a text field (process dialogs in order, most
+            // specific first; plain list view clears the selection).
+            if i.key_pressed(egui::Key::Escape) {
+                let op_running = self
+                    .op_runner
+                    .as_ref()
+                    .map(|r| !r.is_finished())
+                    .unwrap_or(false);
+                if op_running {
+                    // Cancel the running file operation
+                    if let Some(runner) = &self.op_runner {
+                        runner.cancel();
+                        self.status_message = "Cancelling operation...".to_string();
+                    }
+                } else if self.show_progress_dialog {
+                    self.show_progress_dialog = false;
+                    self.op_result_message = None;
+                } else if self.filter_mode {
+                    self.filter_mode = false;
+                    self.get_active_pane_mut().filter_text.clear();
+                    self.status_message = "Filter cleared".to_string();
+                } else if self.show_new_folder_dialog {
+                    self.show_new_folder_dialog = false;
+                    self.new_folder_name.clear();
+                } else if self.show_rename_dialog {
+                    self.show_rename_dialog = false;
+                    self.rename_new_name.clear();
+                } else if self.show_paste_conflict {
+                    self.paste_conflict_cancel();
+                } else if self.show_about_dialog {
+                    self.show_about_dialog = false;
+                } else if self.show_properties_dialog {
+                    self.show_properties_dialog = false;
+                    self.properties_item = None;
+                } else if self.show_delete_confirm {
+                    self.show_delete_confirm = false;
+                    self.item_to_delete = None;
+                } else if self.show_search_dialog {
+                    self.show_search_dialog = false;
+                } else if self.show_compare_dialog {
+                    self.show_compare_dialog = false;
+                    self.comparison_result = None;
+                } else {
+                    self.get_active_pane_mut().clear_selection();
+                    return;
+                }
+            }
+
+            if text_focus {
+                return;
+            }
+
             if i.key_pressed(egui::Key::ArrowUp) {
                 let pane = self.get_active_pane_mut();
                 if shift_pressed {
@@ -35,10 +94,6 @@ impl FileManagerApp {
                     self.status_message = format!("Error: {}", e);
                 }
             }
-            
-            if i.key_pressed(egui::Key::Escape) {
-                self.get_active_pane_mut().clear_selection();
-            }
 
             // Tab to switch panes
             if i.key_pressed(egui::Key::Tab) {
@@ -63,11 +118,21 @@ impl FileManagerApp {
                 }
             }
 
-            // F2 - Refresh (Total Commander style)
+            // F2 - Refresh, or Shift+F2 - Rename (Total Commander style:
+            // F2 alone never renames, so the menu label no longer lies).
             if i.key_pressed(egui::Key::F2) {
-                let _ = self.left_pane.refresh();
-                let _ = self.right_pane.refresh();
-                self.status_message = "Refreshed both panes".to_string();
+                if i.modifiers.shift {
+                    if let Some(item) = self.get_active_pane().get_selected_item() {
+                        if item.name != ".." {
+                            self.rename_new_name = item.name.clone();
+                            self.show_rename_dialog = true;
+                        }
+                    }
+                } else {
+                    let _ = self.left_pane.refresh();
+                    let _ = self.right_pane.refresh();
+                    self.status_message = "Refreshed both panes".to_string();
+                }
             }
 
             // F3 - Open file with default app (Total Commander style)
@@ -145,48 +210,6 @@ impl FileManagerApp {
             if i.modifiers.ctrl && i.modifiers.shift && i.key_pressed(egui::Key::F) {
                 self.search_criteria.search_path = self.get_active_pane().current_path.clone();
                 self.show_search_dialog = true;
-            }
-
-            // ESC - Exit filter mode or close dialogs
-            if i.key_pressed(egui::Key::Escape) {
-                let op_running = self
-                    .op_runner
-                    .as_ref()
-                    .map(|r| !r.is_finished())
-                    .unwrap_or(false);
-                if op_running {
-                    // Cancel the running file operation
-                    if let Some(runner) = &self.op_runner {
-                        runner.cancel();
-                        self.status_message = "Cancelling operation...".to_string();
-                    }
-                } else if self.show_progress_dialog {
-                    self.show_progress_dialog = false;
-                    self.op_result_message = None;
-                } else if self.filter_mode {
-                    self.filter_mode = false;
-                    self.get_active_pane_mut().filter_text.clear();
-                    self.status_message = "Filter cleared".to_string();
-                } else if self.show_new_folder_dialog {
-                    self.show_new_folder_dialog = false;
-                    self.new_folder_name.clear();
-                } else if self.show_rename_dialog {
-                    self.show_rename_dialog = false;
-                    self.rename_new_name.clear();
-                } else if self.show_about_dialog {
-                    self.show_about_dialog = false;
-                } else if self.show_properties_dialog {
-                    self.show_properties_dialog = false;
-                    self.properties_item = None;
-                } else if self.show_delete_confirm {
-                    self.show_delete_confirm = false;
-                    self.item_to_delete = None;
-                } else if self.show_search_dialog {
-                    self.show_search_dialog = false;
-                } else if self.show_compare_dialog {
-                    self.show_compare_dialog = false;
-                    self.comparison_result = None;
-                }
             }
 
             // Ctrl+D - Compare files

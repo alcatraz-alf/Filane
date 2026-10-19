@@ -1,9 +1,12 @@
 [Desktop Entry]
+Version=1.0
 Type=Application
-Name=Dual-Pane File Manager
-Comment=A modern dual-pane file manager built with Rust
-Exec=dual-pane-fm-gui
+Name=Filane - Dual Pane FM
+Comment=Modern dual-pane file manager with advanced features
+Exec=/usr/local/bin/dual-pane-fm-gui
 Icon=dual-pane-fm
-Categories=System;FileTools;FileManager;
 Terminal=false
+Categories=System;FileTools;FileManager;
+Keywords=file;manager;explorer;browser;dual;pane;
 StartupNotify=true
+StartupWMClass=dual-pane-fm

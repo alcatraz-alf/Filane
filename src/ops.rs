@@ -11,6 +11,7 @@ pub enum OpKind {
     Move,
     Delete,
     CompressZip,
+    CompressTarGz,
     ExtractZip,
     ExtractTar,
 }
@@ -21,7 +22,7 @@ impl OpKind {
             OpKind::Copy => "Copying",
             OpKind::Move => "Moving",
             OpKind::Delete => "Deleting",
-            OpKind::CompressZip => "Compressing",
+            OpKind::CompressZip | OpKind::CompressTarGz => "Compressing",
             OpKind::ExtractZip | OpKind::ExtractTar => "Extracting",
         }
     }
@@ -32,6 +33,7 @@ impl OpKind {
             OpKind::Move => "✂️",
             OpKind::Delete => "🗑",
             OpKind::CompressZip => "🗃️",
+            OpKind::CompressTarGz => "🗜️",
             OpKind::ExtractZip | OpKind::ExtractTar => "📦",
         }
     }
@@ -42,6 +44,7 @@ pub enum Operation {
     Copy { sources: Vec<PathBuf>, dest: PathBuf },
     Move { sources: Vec<PathBuf>, dest: PathBuf },
     CompressZip { source: PathBuf, dest_zip: PathBuf },
+    CompressTarGz { source: PathBuf, dest_path: PathBuf },
     ExtractZip { archive: PathBuf, dest_dir: PathBuf },
     ExtractTar { archive: PathBuf, dest_dir: PathBuf },
 }
@@ -204,7 +207,16 @@ fn scan_operation(op: &Operation) -> Result<(OpKind, String, u64, u64)> {
                 .unwrap_or_else(|| "files".to_string());
             Ok((kind, title, bytes_total, files_total))
         }
-        Operation::CompressZip { source, dest_zip } => {
+        Operation::CompressZip { source, dest_zip: dest }
+        | Operation::CompressTarGz { source, dest_path: dest } => {
+            let kind = match op {
+                Operation::CompressZip { .. } => OpKind::CompressZip,
+                _ => OpKind::CompressTarGz,
+            };
+            let archive_fallback = match op {
+                Operation::CompressZip { .. } => "archive.zip",
+                _ => "archive.tar.gz",
+            };
             let mut bytes_total = 0u64;
             let mut files_total = 0u64;
             if source.is_dir() {
@@ -213,11 +225,11 @@ fn scan_operation(op: &Operation) -> Result<(OpKind, String, u64, u64)> {
                 bytes_total += meta.len();
                 files_total += 1;
             }
-            let title = dest_zip
+            let title = dest
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_else(|| "archive.zip".to_string());
-            Ok((OpKind::CompressZip, title, bytes_total, files_total))
+                .unwrap_or_else(|| archive_fallback.to_string());
+            Ok((kind, title, bytes_total, files_total))
         }
         Operation::ExtractZip { archive, .. } | Operation::ExtractTar { archive, .. } => {
             let kind = match op {
@@ -351,6 +363,33 @@ fn run_operation(shared: &SharedState, op: Operation) -> Result<()> {
             zip.finish()?;
             Ok(())
         }
+        Operation::CompressTarGz { source, dest_path } => {
+            let file = fs::File::create(&dest_path)?;
+            let enc = flate2::write::GzEncoder::new(file, flate2::Compression::default());
+            let mut tar = tar::Builder::new(enc);
+            tar.follow_symlinks(false);
+
+            if source.is_file() {
+                let name = source
+                    .file_name()
+                    .ok_or_else(|| anyhow::anyhow!("Invalid filename"))?
+                    .to_string_lossy()
+                    .to_string();
+                shared.set_current_file(&name);
+                tar.append_path_with_name(&source, name.as_str())?;
+                let len = fs::metadata(&source).map(|m| m.len()).unwrap_or(0);
+                shared.update_bytes(len);
+                shared.increment_files();
+            } else if source.is_dir() {
+                tar_dir_bg(shared, &mut tar, &source, &source)?;
+            } else {
+                anyhow::bail!("Source is neither a file nor a directory");
+            }
+
+            let enc = tar.into_inner()?;
+            enc.finish()?;
+            Ok(())
+        }
         Operation::ExtractZip { archive, dest_dir } => {
             fs::create_dir_all(&dest_dir)?;
             let file = fs::File::open(&archive)?;
@@ -430,4 +469,94 @@ fn compress_dir_bg(
         }
     }
     Ok(())
+}
+
+fn tar_dir_bg(
+    shared: &SharedState,
+    tar: &mut tar::Builder<flate2::write::GzEncoder<std::fs::File>>,
+    base_path: &Path,
+    current_path: &Path,
+) -> Result<()> {
+    if shared.is_cancelled() {
+        anyhow::bail!("cancelled");
+    }
+    for entry in fs::read_dir(current_path)? {
+        let entry = entry?;
+        let path = entry.path();
+        let name = path.strip_prefix(base_path)?;
+        if shared.is_cancelled() {
+            anyhow::bail!("cancelled");
+        }
+        if path.is_file() {
+            shared.set_current_file(&name.to_string_lossy());
+            tar.append_path_with_name(&path, name)?;
+            let len = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+            shared.update_bytes(len);
+            shared.increment_files();
+        } else if path.is_dir() {
+            tar.append_dir(name, &path)?;
+            tar_dir_bg(shared, tar, base_path, &path)?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compress_tar_gz_roundtrip() {
+        let tmp = std::env::temp_dir().join("filane_ops_test");
+        let _ = fs::remove_dir_all(&tmp);
+        let src = tmp.join("src_dir");
+        fs::create_dir_all(src.join("sub")).unwrap();
+        fs::write(src.join("a.txt"), b"hello").unwrap();
+        fs::write(src.join("sub").join("b.txt"), b"world").unwrap();
+
+        let dest = tmp.join("out.tar.gz");
+        let shared = SharedState {
+            state: Mutex::new(OperationState {
+                kind: OpKind::CompressTarGz,
+                title: "out.tar.gz".into(),
+                current_file: String::new(),
+                bytes_done: 0,
+                bytes_total: 100,
+                files_done: 0,
+                files_total: 2,
+                finished: false,
+                error: None,
+                cancelled: false,
+            }),
+            cancel: AtomicBool::new(false),
+            bytes_done: AtomicU64::new(0),
+            files_done: AtomicU64::new(0),
+        };
+        run_operation(
+            &shared,
+            Operation::CompressTarGz {
+                source: src.clone(),
+                dest_path: dest.clone(),
+            },
+        )
+        .unwrap();
+
+        assert!(dest.exists());
+        let f = fs::File::open(&dest).unwrap();
+        let dec = flate2::read::GzDecoder::new(f);
+        let mut ar = tar::Archive::new(dec);
+        let names: Vec<String> = ar
+            .entries()
+            .unwrap()
+            .map(|e| e.unwrap().path().unwrap().to_string_lossy().to_string())
+            .collect();
+        println!("entries: {:?}", names);
+        assert!(!names.is_empty());
+        assert!(names.iter().any(|n| n.contains("a.txt")));
+        assert!(names.iter().any(|n| n.contains("b.txt")));
+        assert_eq!(shared.files_done.load(Ordering::Relaxed), 2);
+        assert!(shared.bytes_done.load(Ordering::Relaxed) >= 10);
+
+        let _ = fs::remove_dir_all(&tmp);
+    }
 }

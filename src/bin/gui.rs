@@ -18,8 +18,7 @@ fn main() -> eframe::Result<()> {
         options,
         Box::new(|cc| {
             egui_extras::install_image_loaders(&cc.egui_ctx);
-            cc.egui_ctx.set_zoom_factor(1.1);
-            
+
             Ok(Box::new(FileManagerApp::new(cc)))
         }),
     )

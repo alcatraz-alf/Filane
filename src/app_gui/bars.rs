@@ -62,10 +62,11 @@ impl FileManagerApp {
     }
 
     pub(crate) fn render_function_bar_panel(&mut self, ctx: &egui::Context) {
+        let visuals = ctx.style().visuals.clone();
         egui::TopBottomPanel::bottom("function_bar")
             .frame(
                 egui::Frame::default()
-                    .fill(egui::Color32::from_rgb(45, 47, 50))
+                    .fill(visuals.panel_fill)
                     .inner_margin(egui::Margin::symmetric(8.0, 8.0)),
             )
             .show(ctx, |ui| {
@@ -171,35 +172,35 @@ impl FileManagerApp {
                                 .color(visuals.widgets.noninteractive.bg_fill),
                         );
                         ui.add_space(4.0);
+                        let op_label = if self
+                            .clipboard
+                            .as_ref()
+                            .map(|(_, op)| matches!(op, super::ClipboardOperation::Cut))
+                            .unwrap_or(false)
+                        {
+                            "✂ Clipboard: cut"
+                        } else {
+                            "📋 Clipboard: copy"
+                        };
                         ui.label(
-                            egui::RichText::new("📋 Clipboard ready")
+                            egui::RichText::new(op_label)
                                 .size(12.0)
                                 .color(visuals.widgets.active.bg_fill),
                         );
                         ui.add_space(8.0);
                     }
 
-                    // Status message
-                    if !self.status_message.is_empty() {
-                        ui.label(
-                            egui::RichText::new("│")
-                                .size(12.0)
-                                .color(visuals.widgets.noninteractive.bg_fill),
-                        );
-                        ui.add_space(4.0);
-                        ui.label(
-                            egui::RichText::new(&self.status_message)
-                                .size(12.0)
-                                .color(visuals.widgets.noninteractive.fg_stroke.color),
-                        );
-                    }
-
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(
-                            egui::RichText::new("⚡ Ready")
-                                .size(12.0)
-                                .color(visuals.widgets.active.bg_fill),
-                        );
+                        // Multi-selection count (Ctrl/Shift selection feedback
+                        // that used to be invisible).
+                        let count = self.get_active_pane().get_selected_items().len();
+                        if count > 1 {
+                            ui.label(
+                                egui::RichText::new(format!("☑ {} selected", count))
+                                    .size(12.0)
+                                    .color(visuals.widgets.active.bg_fill),
+                            );
+                        }
                     });
                 });
             });

@@ -24,6 +24,10 @@
 ## Unreleased
 
 ### New Features
+- 🗜️ **Compress to TAR.GZ** - Context menu kini punya dua opsi compress: ZIP dan TAR.GZ
+  - Compress TAR.GZ berjalan di background dengan progress per file dan tombol Cancel
+  - Implementasi streaming `tar::Builder` + `flate2::GzEncoder` di `ops.rs` (`tar_dir_bg`)
+  - Unit test roundtrip: compress lalu baca kembali isi arsip
 - ✅ **Mount Points Viewer** - View and access all mount points and storage devices
   - Auto-detection of all system mount points
   - Display device info (name, filesystem type, disk type)

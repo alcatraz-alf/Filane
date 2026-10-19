@@ -1,4 +1,4 @@
-use crate::pane::Pane;
+use crate::pane::{Pane, SortBy, SortOrder};
 use anyhow::Result;
 use std::env;
 use std::fs;
@@ -21,13 +21,42 @@ mod sidebar;
 mod sidebar_panel;
 mod theme;
 
-#[derive(Clone, Debug)]
+/// Preferences persisted across app restarts via egui storage.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct AppPrefs {
+    current_theme: Theme,
+    show_hidden_files: bool,
+    show_sidebar: bool,
+    show_preview_panel: bool,
+    sidebar_quick_access_expanded: bool,
+    sidebar_bookmarks_expanded: bool,
+    sidebar_devices_expanded: bool,
+    filter_txt: bool,
+    filter_image: bool,
+    filter_pdf: bool,
+    filter_doc: bool,
+    filter_xls: bool,
+    left_dir: PathBuf,
+    right_dir: PathBuf,
+    left_sort_by: SortBy,
+    left_sort_order: SortOrder,
+    right_sort_by: SortBy,
+    right_sort_order: SortOrder,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum ClipboardOperation {
     Copy,
     Cut,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum ArchiveKind {
+    Zip,
+    TarGz,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Theme {
     Dark,
     Light,
@@ -81,6 +110,44 @@ impl ImageViewerState {
             offset: egui::Vec2::ZERO,
             dragging: false,
             drag_start: egui::Pos2::ZERO,
+        }
+    }
+}
+
+/// A transient notification shown near the op site (bottom-center) that
+/// auto-dismisses after a few seconds.
+#[derive(Clone)]
+pub struct Toast {
+    pub text: String,
+    pub kind: ToastKind,
+    /// Seconds since creation, advanced each frame.
+    pub age: f32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ToastKind {
+    Info,
+    Success,
+    Warning,
+    Error,
+}
+
+impl ToastKind {
+    fn icon(&self) -> &'static str {
+        match self {
+            ToastKind::Info => "ℹ",
+            ToastKind::Success => "✅",
+            ToastKind::Warning => "⚠️",
+            ToastKind::Error => "❌",
+        }
+    }
+
+    fn color(&self) -> egui::Color32 {
+        match self {
+            ToastKind::Info => egui::Color32::from_rgb(138, 180, 248),
+            ToastKind::Success => egui::Color32::from_rgb(129, 201, 149),
+            ToastKind::Warning => egui::Color32::from_rgb(251, 188, 5),
+            ToastKind::Error => egui::Color32::from_rgb(242, 139, 130),
         }
     }
 }
@@ -139,6 +206,18 @@ pub struct FileManagerApp {
     pub op_runner: Option<crate::ops::OpRunner>,
     pub show_progress_dialog: bool,
     pub op_result_message: Option<String>,
+    /// Transient UI notifications (auto-dismiss); replaces the old single
+    /// status_message text buried at the end of the status bar.
+    pub toasts: Vec<Toast>,
+    /// Tracks status_message changes so each new message becomes a toast.
+    last_status_message: String,
+    // Paste conflict dialog state (destination file already exists)
+    pub show_paste_conflict: bool,
+    pub paste_conflict_source: Option<PathBuf>,
+    pub paste_conflict_source_name: String,
+    pub paste_conflict_dest_dir: Option<PathBuf>,
+    pub(crate) paste_conflict_op: Option<ClipboardOperation>,
+    pub paste_conflict_new_name: String,
 }
 
 #[derive(Clone)]
@@ -162,23 +241,40 @@ pub enum PreviewContent {
 }
 
 impl FileManagerApp {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // Try to get home directory first, fallback to current dir
         let start_dir = dirs::home_dir()
             .or_else(|| env::current_dir().ok())
             .unwrap_or_else(|| std::path::PathBuf::from("."));
 
-        let left_pane = Pane::new(start_dir.clone()).unwrap_or_else(|e| {
+        // Load persisted preferences (falls back to defaults on first run)
+        let prefs: Option<AppPrefs> = cc
+            .storage
+            .as_ref()
+            .and_then(|storage| eframe::get_value(*storage, "app_prefs"));
+
+        let left_dir = prefs
+            .as_ref()
+            .map(|p| p.left_dir.clone())
+            .filter(|p| p.is_dir())
+            .unwrap_or_else(|| start_dir.clone());
+        let right_dir = prefs
+            .as_ref()
+            .map(|p| p.right_dir.clone())
+            .filter(|p| p.is_dir())
+            .unwrap_or(left_dir.clone());
+
+        let left_pane = Pane::new(left_dir).unwrap_or_else(|e| {
             eprintln!("Error creating left pane: {}", e);
-            Pane::new(std::path::PathBuf::from("/")).expect("Failed to create pane")
+            Pane::new(start_dir.clone()).expect("Failed to create pane")
         });
 
-        let right_pane = Pane::new(start_dir.clone()).unwrap_or_else(|e| {
+        let right_pane = Pane::new(right_dir).unwrap_or_else(|e| {
             eprintln!("Error creating right pane: {}", e);
-            Pane::new(std::path::PathBuf::from("/")).expect("Failed to create pane")
+            Pane::new(start_dir.clone()).expect("Failed to create pane")
         });
 
-        Self {
+        let mut app = Self {
             left_pane,
             right_pane,
             active_pane: 0,
@@ -232,7 +328,127 @@ impl FileManagerApp {
             op_runner: None,
             show_progress_dialog: false,
             op_result_message: None,
+            show_paste_conflict: false,
+            paste_conflict_source: None,
+            paste_conflict_source_name: String::new(),
+            paste_conflict_dest_dir: None,
+            paste_conflict_op: None,
+            paste_conflict_new_name: String::new(),
+            toasts: Vec::new(),
+            last_status_message: String::new(),
+        };
+
+        // Overlay persisted prefs on top of defaults
+        if let Some(prefs) = prefs {
+            app.current_theme = prefs.current_theme;
+            app.show_hidden_files = prefs.show_hidden_files;
+            app.show_sidebar = prefs.show_sidebar;
+            app.show_preview_panel = prefs.show_preview_panel;
+            app.sidebar_quick_access_expanded = prefs.sidebar_quick_access_expanded;
+            app.sidebar_bookmarks_expanded = prefs.sidebar_bookmarks_expanded;
+            app.sidebar_devices_expanded = prefs.sidebar_devices_expanded;
+            app.filter_txt = prefs.filter_txt;
+            app.filter_image = prefs.filter_image;
+            app.filter_pdf = prefs.filter_pdf;
+            app.filter_doc = prefs.filter_doc;
+            app.filter_xls = prefs.filter_xls;
+            app.left_pane.sort_by = prefs.left_sort_by;
+            app.left_pane.sort_order = prefs.left_sort_order;
+            app.right_pane.sort_by = prefs.right_sort_by;
+            app.right_pane.sort_order = prefs.right_sort_order;
+            let _ = app.left_pane.refresh();
+            let _ = app.right_pane.refresh();
         }
+
+        app
+    }
+
+    /// Push a toast notification (newest on top).
+    pub fn push_toast(&mut self, text: impl Into<String>, kind: ToastKind) {
+        self.toasts.insert(
+            0,
+            Toast {
+                text: text.into(),
+                kind,
+                age: 0.0,
+            },
+        );
+        // Cap so a burst of errors doesn't stack unbounded
+        if self.toasts.len() > 5 {
+            self.toasts.truncate(5);
+        }
+    }
+
+    pub(crate) fn render_toasts(&mut self, ctx: &egui::Context) {
+        if self.toasts.is_empty() {
+            return;
+        }
+
+        let dt = ctx.input(|i| i.stable_dt);
+        for toast in &mut self.toasts {
+            toast.age += dt;
+        }
+
+        // Expire after 3.5s
+        self.toasts.retain(|t| t.age < 3.5);
+        if self.toasts.is_empty() {
+            return;
+        }
+
+        let screen = ctx.screen_rect();
+        egui::Area::new(egui::Id::new("toasts"))
+            .anchor(
+                egui::Align2::CENTER_BOTTOM,
+                [0.0, -(if self.show_preview_panel { 236.0 } else { 36.0 })],
+            )
+            .order(egui::Order::Foreground)
+            .show(ctx, |ui| {
+                let _ = screen;
+                for toast in &self.toasts {
+                    let fade_out_start = 3.0;
+                    let alpha = (if toast.age < fade_out_start {
+                        1.0
+                    } else {
+                        1.0 - (toast.age - fade_out_start) / 0.5
+                    })
+                    .clamp(0.0, 1.0);
+
+                    let accent = toast.kind.color();
+                    // Fade by multiplying colors (Frame has no opacity API)
+                    let fill = egui::Color32::from_rgb(45, 47, 50).gamma_multiply(alpha);
+                    let text_col =
+                        egui::Color32::from_rgb(232, 234, 237).gamma_multiply(alpha);
+                    egui::Frame::default()
+                        .fill(fill)
+                        .rounding(8.0)
+                        .shadow(egui::epaint::Shadow {
+                            offset: egui::vec2(0.0, 2.0),
+                            blur: 8.0,
+                            spread: 0.0,
+                            color: egui::Color32::from_black_alpha(100),
+                        })
+                        .stroke(egui::Stroke::new(2.0, accent.gamma_multiply(alpha)))
+                        .inner_margin(egui::Margin::symmetric(14.0, 8.0))
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    egui::RichText::new(format!("{} ", toast.kind.icon()))
+                                        .size(14.0)
+                                        .color(accent.gamma_multiply(alpha)),
+                                );
+                                ui.label(
+                                    egui::RichText::new(&toast.text)
+                                        .size(13.0)
+                                        .color(text_col),
+                                );
+                            });
+                        });
+                    ui.add_space(6.0);
+                }
+            });
+
+        // Keep repainting while toasts fade out
+        ctx.request_repaint_after(std::time::Duration::from_millis(100));
     }
 
     pub fn start_operation(&mut self, op: crate::ops::Operation) {
@@ -363,6 +579,175 @@ impl FileManagerApp {
         }
     }
 
+    /// Show a conflict dialog when the paste destination already exists.
+    fn open_paste_conflict(&mut self, source_path: PathBuf, op: ClipboardOperation) {
+        let dest_dir = if self.active_pane == 0 {
+            self.right_pane.current_path.clone()
+        } else {
+            self.left_pane.current_path.clone()
+        };
+        let file_name = source_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        // Suggest a unique name: "name (1).ext"
+        let mut candidate = file_name.clone();
+        let mut counter = 1;
+        while dest_dir.join(&candidate).exists() {
+            let stem = std::path::Path::new(&file_name)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or(&file_name);
+            let ext = std::path::Path::new(&file_name)
+                .extension()
+                .and_then(|e| e.to_str());
+            candidate = match ext {
+                Some(ext) => format!("{} ({}).{}", stem, counter, ext),
+                None => format!("{} ({})", stem, counter),
+            };
+            counter += 1;
+        }
+
+        self.show_paste_conflict = true;
+        self.paste_conflict_source = Some(source_path);
+        self.paste_conflict_source_name = file_name;
+        self.paste_conflict_dest_dir = Some(dest_dir);
+        self.paste_conflict_op = Some(op);
+        self.paste_conflict_new_name = candidate;
+    }
+
+    fn begin_paste(&mut self, source_path: PathBuf, dest_dir: PathBuf, op: ClipboardOperation, consume_clipboard: bool) {
+        let op_cmd = match op {
+            ClipboardOperation::Copy => crate::ops::Operation::Copy {
+                sources: vec![source_path],
+                dest: dest_dir,
+            },
+            ClipboardOperation::Cut => crate::ops::Operation::Move {
+                sources: vec![source_path],
+                dest: dest_dir,
+            },
+        };
+        self.start_operation(op_cmd);
+        // Cut clipboard is consumed on successful paste; Copy persists.
+        if !consume_clipboard && matches!(op, ClipboardOperation::Cut) {
+            self.clipboard = None;
+        }
+    }
+
+    pub fn paste_conflict_overwrite(&mut self) {
+        let (source, dest_dir) = match (&self.paste_conflict_source, &self.paste_conflict_dest_dir) {
+            (Some(s), Some(d)) => (s.clone(), d.clone()),
+            _ => return,
+        };
+        let op = self.paste_conflict_op.unwrap_or(ClipboardOperation::Copy);
+        let file_name = self.paste_conflict_source_name.clone();
+
+        let existing = dest_dir.join(&file_name);
+        let source_is_dir = fs::metadata(&source).map(|m| m.is_dir()).unwrap_or(false);
+        if existing.is_dir() {
+            // Source dir over existing dir: copy merges safely; move would fail
+            if source_is_dir && matches!(op, ClipboardOperation::Copy) {
+                self.begin_paste(source, dest_dir, op, false);
+            } else {
+                self.status_message =
+                    format!("❌ Cannot overwrite folder '{}': destination exists", file_name);
+            }
+        } else if source_is_dir {
+            // Dir replacing file: too destructive to do silently
+            self.status_message =
+                format!("❌ '{}' already exists as a file; rename instead", file_name);
+        } else {
+            match fs::remove_file(&existing) {
+                Ok(_) => self.begin_paste(source, dest_dir, op, false),
+                Err(e) => {
+                    // Keep dialog open so the user can pick another option
+                    self.status_message = format!("❌ Cannot overwrite: {}", e);
+                    return;
+                }
+            }
+        }
+        self.close_paste_conflict();
+    }
+
+    pub fn paste_conflict_rename(&mut self) {
+        let (source, dest_dir) = match (&self.paste_conflict_source, &self.paste_conflict_dest_dir) {
+            (Some(s), Some(d)) => (s.clone(), d.clone()),
+            _ => return,
+        };
+        let op = self.paste_conflict_op.unwrap_or(ClipboardOperation::Copy);
+        let new_name = self.paste_conflict_new_name.trim().to_string();
+
+        if new_name.is_empty() || new_name == "." || new_name == ".." {
+            self.status_message = "Invalid name".to_string();
+            return;
+        }
+        if dest_dir.join(&new_name).exists() {
+            self.status_message = format!("❌ '{}' also exists, pick another name", new_name);
+            return;
+        }
+
+        // Synchronous copy under the new name (paste handles a single item)
+        let dest = dest_dir.join(&new_name);
+        let result = if source.is_dir() {
+            copy_dir_sync(&source, &dest)
+        } else {
+            fs::copy(&source, &dest)
+                .map(|_| ())
+                .map_err(anyhow::Error::from)
+        };
+
+        match result {
+            Ok(_) => {
+                if matches!(op, ClipboardOperation::Cut) {
+                    // Move semantics: the original source no longer belongs here
+                    let remove_result = if source.is_dir() {
+                        fs::remove_dir_all(&source)
+                    } else {
+                        fs::remove_file(&source)
+                    };
+                    if let Err(e) = remove_result {
+                        self.status_message =
+                            format!("⚠ Copied as '{}', but failed to remove source: {}", new_name, e);
+                        self.close_paste_conflict();
+                        return;
+                    }
+                    self.clipboard = None;
+                    self.status_message = format!("Moved as '{}'", new_name);
+                } else {
+                    self.status_message = format!("Copied as '{}'", new_name);
+                }
+                let _ = self.left_pane.refresh();
+                let _ = self.right_pane.refresh();
+            }
+            Err(e) => {
+                self.status_message = format!("❌ Paste failed: {}", e);
+            }
+        }
+        self.close_paste_conflict();
+    }
+
+    pub fn paste_conflict_skip(&mut self) {
+        let name = self.paste_conflict_source_name.clone();
+        self.status_message = format!("Skipped '{}' (already exists)", name);
+        self.close_paste_conflict();
+    }
+
+    pub fn paste_conflict_cancel(&mut self) {
+        // Clipboard kept so the user can paste elsewhere
+        self.close_paste_conflict();
+    }
+
+    fn close_paste_conflict(&mut self) {
+        self.show_paste_conflict = false;
+        self.paste_conflict_source = None;
+        self.paste_conflict_source_name = String::new();
+        self.paste_conflict_dest_dir = None;
+        self.paste_conflict_op = None;
+        self.paste_conflict_new_name = String::new();
+    }
+
     pub fn paste_from_clipboard(&mut self) -> Result<()> {
         // Clone clipboard data to avoid borrow issues
         let clipboard_data = self.clipboard.clone();
@@ -380,10 +765,11 @@ impl FileManagerApp {
                 .unwrap_or("unknown");
             let dest_path = target_path.join(file_name);
 
+            // Destination already exists: let the user resolve the conflict
+            // (Overwrite / Rename / Skip) instead of failing outright.
             if dest_path.exists() {
-                self.status_message =
-                    format!("❌ Destination already exists: {}", file_name);
-                anyhow::bail!("Destination already exists");
+                self.open_paste_conflict(source_path.clone(), operation);
+                return Ok(());
             }
 
             let op = match operation {
@@ -480,56 +866,87 @@ impl FileManagerApp {
         Ok(())
     }
 
+    /// Restore an item that is currently inside the OS trash back to its
+    /// original location.
+    pub fn restore_trashed_item(&mut self, path: &std::path::Path, _name: &str) {
+        match crate::trash::restore_from_trash(path) {
+            Ok(restored) => {
+                self.status_message = format!("Restored to {}", restored.display());
+                let _ = self.get_active_pane_mut().refresh();
+                if self.show_preview_panel {
+                    self.update_previews();
+                }
+            }
+            Err(e) => {
+                self.status_message = format!("❌ Restore failed: {}", e);
+            }
+        }
+    }
+
     pub fn delete_selected_file(&mut self) -> Result<()> {
         let items_to_delete: Vec<_> = self.get_active_pane()
             .get_selected_items()
             .iter()
             .filter(|item| item.name != "..")
-            .map(|item| (item.path.clone(), item.is_dir, item.name.clone()))
+            .map(|item| (item.path.clone(), item.name.clone()))
             .collect();
 
-        let mut deleted_count = 0;
-        for (path, is_dir, _name) in items_to_delete {
-            if is_dir {
-                fs::remove_dir_all(&path)?;
-            } else {
-                fs::remove_file(&path)?;
+        // Move to the OS trash instead of permanently deleting, so the
+        // user can recover from accidental deletions.
+        let mut moved_count = 0;
+        for (path, name) in &items_to_delete {
+            match crate::trash::move_to_trash(path) {
+                Ok(_) => moved_count += 1,
+                Err(e) => {
+                    self.status_message =
+                        format!("❌ Failed to move '{}' to trash: {}", name, e);
+                    anyhow::bail!("Move to trash failed: {}", e);
+                }
             }
-            deleted_count += 1;
         }
 
-        self.status_message = if deleted_count == 1 {
-            format!("Deleted 1 item")
+        self.status_message = if moved_count == 1 {
+            "Moved 1 item to Trash".to_string()
         } else {
-            format!("Deleted {} items", deleted_count)
+            format!("Moved {} items to Trash", moved_count)
         };
-        
+
         self.get_active_pane_mut().clear_selection();
         self.get_active_pane_mut().refresh()?;
         Ok(())
     }
 
-    pub fn compress_item(&mut self) -> Result<()> {
+    pub fn compress_item(&mut self, kind: ArchiveKind) -> Result<()> {
         let item = self.get_active_pane().get_selected_item().cloned();
 
         if let Some(item) = item {
             if item.name != ".." {
-                let zip_name = format!("{}.zip", item.name);
-                let zip_path = item
+                let archive_name = match kind {
+                    ArchiveKind::Zip => format!("{}.zip", item.name),
+                    ArchiveKind::TarGz => format!("{}.tar.gz", item.name),
+                };
+                let archive_path = item
                     .path
                     .parent()
                     .unwrap_or(item.path.as_path())
-                    .join(&zip_name);
+                    .join(&archive_name);
 
-                if zip_path.exists() {
-                    self.status_message = format!("❌ Archive already exists: {}", zip_name);
+                if archive_path.exists() {
+                    self.status_message = format!("❌ Archive already exists: {}", archive_name);
                     anyhow::bail!("Archive already exists");
                 }
 
-                self.start_operation(crate::ops::Operation::CompressZip {
-                    source: item.path.clone(),
-                    dest_zip: zip_path,
-                });
+                let op = match kind {
+                    ArchiveKind::Zip => crate::ops::Operation::CompressZip {
+                        source: item.path.clone(),
+                        dest_zip: archive_path,
+                    },
+                    ArchiveKind::TarGz => crate::ops::Operation::CompressTarGz {
+                        source: item.path.clone(),
+                        dest_path: archive_path,
+                    },
+                };
+                self.start_operation(op);
             }
         }
         Ok(())
@@ -644,9 +1061,24 @@ impl eframe::App for FileManagerApp {
         // Poll background operation
         self.poll_operation(ctx);
 
-        // Apply modern visual style
+        // Every status_message change surfaces as a transient toast so it
+        // can't be lost at the end of a long status bar.
+        if !self.status_message.is_empty() && self.status_message != self.last_status_message {
+            let kind = if self.status_message.starts_with("❌") {
+                ToastKind::Error
+            } else if self.status_message.starts_with("⚠") {
+                ToastKind::Warning
+            } else if self.status_message.starts_with("✅") {
+                ToastKind::Success
+            } else {
+                ToastKind::Info
+            };
+            self.last_status_message = self.status_message.clone();
+            self.push_toast(self.status_message.clone(), kind);
+        }
+
+        // Apply modern visual style (zoom is user-controlled/persisted by egui)
         ctx.set_visuals(self.get_modern_visuals());
-        ctx.set_zoom_factor(1.1);
         self.render_menu_bar(ctx);
         self.render_filter_bar(ctx);
         self.render_function_bar_panel(ctx);
@@ -658,6 +1090,7 @@ impl eframe::App for FileManagerApp {
 
         self.render_image_viewer(ctx);
         self.render_context_menu(ctx);
+        self.render_toasts(ctx);
 
         self.render_properties_dialog(ctx);
         self.render_new_folder_dialog(ctx);
@@ -669,7 +1102,48 @@ impl eframe::App for FileManagerApp {
         self.render_mounts_dialog(ctx);
         self.render_bookmark_dialog(ctx);
         self.render_delete_confirm(ctx);
+        self.render_paste_conflict_dialog(ctx);
         self.render_progress_dialog(ctx);
     }
+
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        let prefs = AppPrefs {
+            current_theme: self.current_theme,
+            show_hidden_files: self.show_hidden_files,
+            show_sidebar: self.show_sidebar,
+            show_preview_panel: self.show_preview_panel,
+            sidebar_quick_access_expanded: self.sidebar_quick_access_expanded,
+            sidebar_bookmarks_expanded: self.sidebar_bookmarks_expanded,
+            sidebar_devices_expanded: self.sidebar_devices_expanded,
+            filter_txt: self.filter_txt,
+            filter_image: self.filter_image,
+            filter_pdf: self.filter_pdf,
+            filter_doc: self.filter_doc,
+            filter_xls: self.filter_xls,
+            left_dir: self.left_pane.current_path.clone(),
+            right_dir: self.right_pane.current_path.clone(),
+            left_sort_by: self.left_pane.sort_by,
+            left_sort_order: self.left_pane.sort_order,
+            right_sort_by: self.right_pane.sort_by,
+            right_sort_order: self.right_pane.sort_order,
+        };
+        eframe::set_value(storage, "app_prefs", &prefs);
+    }
+}
+
+/// Synchronous recursive copy used by the paste-conflict "Rename" action.
+fn copy_dir_sync(src: &std::path::Path, dst: &std::path::Path) -> Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let from = entry.path();
+        let to = dst.join(entry.file_name());
+        if from.is_dir() {
+            copy_dir_sync(&from, &to)?;
+        } else {
+            fs::copy(&from, &to)?;
+        }
+    }
+    Ok(())
 }
 

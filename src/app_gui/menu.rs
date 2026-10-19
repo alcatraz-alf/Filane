@@ -126,7 +126,7 @@ impl FileManagerApp {
                             self.show_new_folder_dialog = true;
                             ui.close_menu();
                         }
-                        if ui.button("✏ Rename (F2)").clicked() {
+                        if ui.button("✏ Rename (Shift+F2)").clicked() {
                             if let Some(item) = self.get_active_pane().get_selected_item() {
                                 if item.name != ".." {
                                     self.rename_new_name = item.name.clone();
@@ -189,6 +189,7 @@ impl FileManagerApp {
                         }
                         ui.separator();
                         ui.label("Keyboard Shortcuts:");
+                        ui.label("• Shift+F2: Rename");
                         ui.label("• F2: Refresh");
                         ui.label("• F3: Open file");
                         ui.label("• F5: Copy");

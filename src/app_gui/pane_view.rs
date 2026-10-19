@@ -4,21 +4,29 @@ use std::path::PathBuf;
 
 impl FileManagerApp {
     pub(crate) fn render_function_bar(&mut self, ui: &mut egui::Ui) {
+        // Theme-aware button styling: never hardcode the dark palette so
+        // Light/Solarized themes don't get broken dark bars.
+        let visuals = ui.ctx().style().visuals.clone();
+        let btn_fill = visuals.widgets.inactive.bg_fill;
+        let btn_hover = visuals.widgets.hovered.bg_fill;
+
         ui.horizontal(|ui| {
             ui.style_mut().spacing.button_padding = egui::vec2(14.0, 10.0);
             ui.style_mut().visuals.widgets.inactive.fg_stroke.color =
-                egui::Color32::from_rgb(232, 234, 237);
-            ui.style_mut().visuals.widgets.hovered.weak_bg_fill =
-                egui::Color32::from_rgb(66, 70, 77);
+                visuals.widgets.inactive.fg_stroke.color;
+            ui.style_mut().visuals.widgets.hovered.weak_bg_fill = btn_hover;
 
-            // Modern function buttons with tooltips
-            if ui
-                .add_sized(
+            let func_button = |ui: &mut egui::Ui, label: &str| {
+                ui.add_sized(
                     [95.0, 38.0],
-                    egui::Button::new(egui::RichText::new("💾 F2").size(13.0))
-                        .fill(egui::Color32::from_rgb(55, 58, 64))
+                    egui::Button::new(egui::RichText::new(label).size(13.0))
+                        .fill(btn_fill)
                         .rounding(6.0),
                 )
+            };
+
+            // Modern function buttons with tooltips
+            if func_button(ui, "💾 F2")
                 .on_hover_text("Refresh both panes")
                 .clicked()
             {
@@ -27,26 +35,14 @@ impl FileManagerApp {
                 self.status_message = "Refreshed both panes".to_string();
             }
 
-            if ui
-                .add_sized(
-                    [95.0, 38.0],
-                    egui::Button::new(egui::RichText::new("📋 F5").size(13.0))
-                        .fill(egui::Color32::from_rgb(55, 58, 64))
-                        .rounding(6.0),
-                )
+            if func_button(ui, "📋 F5")
                 .on_hover_text("Copy selected item")
                 .clicked()
             {
                 self.copy_to_clipboard();
             }
 
-            if ui
-                .add_sized(
-                    [95.0, 38.0],
-                    egui::Button::new(egui::RichText::new("✂ F6").size(13.0))
-                        .fill(egui::Color32::from_rgb(55, 58, 64))
-                        .rounding(6.0),
-                )
+            if func_button(ui, "✂ F6")
                 .on_hover_text("Cut/Move selected item")
                 .clicked()
             {
@@ -61,14 +57,7 @@ impl FileManagerApp {
             };
 
             let paste_btn = ui
-                .add_enabled_ui(paste_enabled, |ui| {
-                    ui.add_sized(
-                        [95.0, 38.0],
-                        egui::Button::new(egui::RichText::new("📎 F7").size(13.0))
-                            .fill(egui::Color32::from_rgb(55, 58, 64))
-                            .rounding(6.0),
-                    )
-                })
+                .add_enabled_ui(paste_enabled, |ui| func_button(ui, "📎 F7"))
                 .inner
                 .on_hover_text(paste_tooltip);
 
@@ -76,14 +65,8 @@ impl FileManagerApp {
                 let _ = self.paste_from_clipboard();
             }
 
-            if ui
-                .add_sized(
-                    [95.0, 38.0],
-                    egui::Button::new(egui::RichText::new("🗑 F8").size(13.0))
-                        .fill(egui::Color32::from_rgb(55, 58, 64))
-                        .rounding(6.0),
-                )
-                .on_hover_text("Delete selected item")
+            if func_button(ui, "🗑 F8")
+                .on_hover_text("Move selected item to Trash")
                 .clicked()
             {
                 if let Some(item) = self.get_active_pane().get_selected_item() {
@@ -109,8 +92,9 @@ impl FileManagerApp {
     }
 
     pub(crate) fn render_transfer_buttons(&mut self, ui: &mut egui::Ui) {
-        // Add vertical spacing to center the buttons
-        ui.add_space(ui.available_height() / 2.0 - 120.0);
+        let visuals = ui.ctx().style().visuals.clone();
+        // Center the (now two) buttons vertically
+        ui.add_space(ui.available_height() / 2.0 - 100.0);
 
         ui.vertical_centered(|ui| {
             ui.style_mut().spacing.item_spacing.y = 12.0;
@@ -125,106 +109,77 @@ impl FileManagerApp {
             let is_parent_dir = selected_name == "..";
             let can_transfer = has_selection && !is_parent_dir;
 
-            // Copy Left to Right button
-            let copy_left_to_right_enabled = self.active_pane == 0 && can_transfer;
-            let copy_l2r_tooltip = if copy_left_to_right_enabled {
-                "Copy selected item\nfrom Left to Right"
+            // Only the active pane's direction is shown: no permanently
+            // disabled half of the panel. Arrow flips with the active pane.
+            let (label_dir, hint_dir) = if self.active_pane == 0 {
+                ("➡", "to the Right pane")
             } else {
-                "Select an item in left pane"
+                ("⬅", "to the Left pane")
+            };
+            let hint_from = if self.active_pane == 0 {
+                "Select an item in the left pane"
+            } else {
+                "Select an item in the right pane"
             };
 
-            let copy_l2r_clicked = ui
-                .add_enabled_ui(copy_left_to_right_enabled, |ui| {
+            // Copy button (theme accent)
+            let copy_clicked = ui
+                .add_enabled_ui(can_transfer, |ui| {
                     ui.add_sized(
                         [50.0, 50.0],
-                        egui::Button::new(egui::RichText::new("➡\n📋").size(14.0))
-                            .fill(egui::Color32::from_rgb(66, 133, 244))
-                            .rounding(8.0),
+                        egui::Button::new(
+                            egui::RichText::new(format!("{}\n📋", label_dir))
+                                .size(14.0)
+                                .color(visuals.widgets.active.fg_stroke.color),
+                        )
+                        .fill(visuals.widgets.active.bg_fill)
+                        .rounding(8.0),
                     )
-                    .on_hover_text(copy_l2r_tooltip)
                 })
                 .inner
+                .on_hover_text(if can_transfer {
+                    format!("Copy selected item\n{}", hint_dir)
+                } else {
+                    hint_from.to_string()
+                })
                 .clicked();
 
-            if copy_l2r_clicked && copy_left_to_right_enabled {
-                self.transfer_selected(0, crate::ops::Operation::Copy { sources: Vec::new(), dest: PathBuf::new() });
+            if copy_clicked && can_transfer {
+                self.transfer_selected(
+                    self.active_pane,
+                    crate::ops::Operation::Copy { sources: Vec::new(), dest: PathBuf::new() },
+                );
             }
 
-            // Copy Right to Left button
-            let copy_right_to_left_enabled = self.active_pane == 1 && can_transfer;
-            let copy_r2l_tooltip = if copy_right_to_left_enabled {
-                "Copy selected item\nfrom Right to Left"
-            } else {
-                "Select an item in right pane"
-            };
+            ui.add_space(12.0);
 
-            let copy_r2l_clicked = ui
-                .add_enabled_ui(copy_right_to_left_enabled, |ui| {
+            // Move button (fixed warning orange, readable on all themes)
+            let move_clicked = ui
+                .add_enabled_ui(can_transfer, |ui| {
                     ui.add_sized(
                         [50.0, 50.0],
-                        egui::Button::new(egui::RichText::new("⬅\n📋").size(14.0))
-                            .fill(egui::Color32::from_rgb(66, 133, 244))
-                            .rounding(8.0),
+                        egui::Button::new(
+                            egui::RichText::new(format!("{}\n✂", label_dir))
+                                .size(14.0)
+                                .color(egui::Color32::BLACK),
+                        )
+                        .fill(egui::Color32::from_rgb(255, 152, 0))
+                        .rounding(8.0),
                     )
-                    .on_hover_text(copy_r2l_tooltip)
                 })
                 .inner
-                .clicked();
-
-            if copy_r2l_clicked && copy_right_to_left_enabled {
-                self.transfer_selected(1, crate::ops::Operation::Copy { sources: Vec::new(), dest: PathBuf::new() });
-            }
-
-            ui.add_space(20.0);
-
-            // Move Left to Right button
-            let move_left_to_right_enabled = self.active_pane == 0 && can_transfer;
-            let move_l2r_tooltip = if move_left_to_right_enabled {
-                "Move selected item\nfrom Left to Right"
-            } else {
-                "Select an item in left pane"
-            };
-
-            let move_l2r_clicked = ui
-                .add_enabled_ui(move_left_to_right_enabled, |ui| {
-                    ui.add_sized(
-                        [50.0, 50.0],
-                        egui::Button::new(egui::RichText::new("➡\n✂").size(14.0))
-                            .fill(egui::Color32::from_rgb(255, 152, 0))
-                            .rounding(8.0),
-                    )
-                    .on_hover_text(move_l2r_tooltip)
+                .on_hover_text(if can_transfer {
+                    format!("Move selected item\n{}", hint_dir)
+                } else {
+                    hint_from.to_string()
                 })
-                .inner
                 .clicked();
 
-            if move_l2r_clicked && move_left_to_right_enabled {
-                self.transfer_selected(0, crate::ops::Operation::Move { sources: Vec::new(), dest: PathBuf::new() });
-            }
-
-            // Move Right to Left button
-            let move_right_to_left_enabled = self.active_pane == 1 && can_transfer;
-            let move_r2l_tooltip = if move_right_to_left_enabled {
-                "Move selected item\nfrom Right to Left"
-            } else {
-                "Select an item in right pane"
-            };
-
-            let move_r2l_clicked = ui
-                .add_enabled_ui(move_right_to_left_enabled, |ui| {
-                    ui.add_sized(
-                        [50.0, 50.0],
-                        egui::Button::new(egui::RichText::new("⬅\n✂").size(14.0))
-                            .fill(egui::Color32::from_rgb(255, 152, 0))
-                            .rounding(8.0),
-                    )
-                    .on_hover_text(move_r2l_tooltip)
-                })
-                .inner
-                .clicked();
-
-            if move_r2l_clicked && move_right_to_left_enabled {
-                self.transfer_selected(1, crate::ops::Operation::Move { sources: Vec::new(), dest: PathBuf::new() });
+            if move_clicked && can_transfer {
+                self.transfer_selected(
+                    self.active_pane,
+                    crate::ops::Operation::Move { sources: Vec::new(), dest: PathBuf::new() },
+                );
             }
         });
     }
@@ -467,11 +422,19 @@ impl FileManagerApp {
                 
                 // Capture shift state before entering closures
                 let shift_pressed = ctx.input(|i| i.modifiers.shift);
+                let ctrl_pressed = ctx.input(|i| i.modifiers.ctrl);
                 
+                // Empty-state tracking: when the table renders no rows we
+                // draw an explanatory message centered in the pane.
+                let mut is_table_empty = false;
+                let mut empty_reason = "";
+                let mut table_rect = egui::Rect::NOTHING;
+
                 // Use allocate_ui to constrain the table width
                 ui.allocate_ui(egui::Vec2::new(table_width, ui.available_height()), |ui| {
                     ui.set_max_width(table_width);
                     ui.set_clip_rect(ui.max_rect());
+                    table_rect = ui.max_rect();
                     
                     // Calculate column widths to fit within table_width
                     let date_width = 140.0;
@@ -545,6 +508,15 @@ impl FileManagerApp {
                             })
                             .collect();
 
+                        if filtered_items.is_empty() {
+                            is_table_empty = true;
+                            empty_reason = if !filter_text.is_empty() {
+                                "No files match the filter"
+                            } else {
+                                "Folder is empty"
+                            };
+                        }
+
                         body.rows(text_height, filtered_items.len(), |mut row| {
                             let item_idx = row.index();
                             let (i, item) = filtered_items[item_idx];
@@ -589,7 +561,12 @@ impl FileManagerApp {
                                         ui.label(egui::RichText::new(status.icon()).size(12.0).color(status.color()));
                                     }
 
-                                    let text_color = if is_selected { egui::Color32::WHITE } else { egui::Color32::LIGHT_GRAY };
+                                    let text_color = if is_selected || is_multi_selected {
+                                        visuals.strong_text_color()
+                                    } else {
+                                        // Theme-aware: LIGHT_GRAY broke Light themes
+                                        visuals.widgets.noninteractive.fg_stroke.color
+                                    };
                                     ui.label(egui::RichText::new(&item.name).size(13.0).color(text_color));
                                 });
                             });
@@ -623,6 +600,14 @@ impl FileManagerApp {
                                     let start = anchor.min(i);
                                     let end = anchor.max(i);
                                     pane.selected_items = (start..=end).collect();
+                                } else if ctrl_pressed {
+                                    // Non-contiguous toggle selection (Explorer-style)
+                                    pane.selected_index = i;
+                                    if pane.is_item_selected(i) {
+                                        pane.selected_items.retain(|&x| x != i);
+                                    } else {
+                                        pane.selected_items.push(i);
+                                    }
                                 } else {
                                     pane.clear_selection();
                                     pane.selected_index = i;
@@ -654,6 +639,17 @@ impl FileManagerApp {
                         });
                     });
                 }); // Close allocate_ui
+
+                // Empty-state message drawn over the (row-less) table area
+                if is_table_empty {
+                    ui.painter().text(
+                        egui::pos2(table_rect.center().x, table_rect.center().y + 20.0),
+                        egui::Align2::CENTER_CENTER,
+                        empty_reason,
+                        egui::FontId::proportional(14.0),
+                        visuals.widgets.noninteractive.fg_stroke.color,
+                    );
+                }
             });
         });
 
