@@ -106,6 +106,20 @@ impl FileManagerApp {
                 self.active_pane = if self.active_pane == 0 { 1 } else { 0 };
             }
 
+            // Backspace - Go up one level
+            if i.key_pressed(egui::Key::Backspace) {
+                let parent = self
+                    .get_active_pane()
+                    .current_path
+                    .parent()
+                    .map(|p| p.to_path_buf());
+                if let Some(parent) = parent {
+                    if let Err(e) = self.get_active_pane_mut().navigate_to(parent) {
+                        self.status_message = format!("Error: {}", e);
+                    }
+                }
+            }
+
             // Alt+Left - Navigate back
             if i.modifiers.alt && i.key_pressed(egui::Key::ArrowLeft) {
                 if let Err(e) = self.get_active_pane_mut().navigate_back() {

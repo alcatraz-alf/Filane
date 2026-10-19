@@ -23,6 +23,7 @@ impl FileManagerApp {
                             &[
                                 ("Tab", "Switch between panes"),
                                 ("Enter", "Open file / directory"),
+                                ("Backspace", "Go up one level"),
                                 ("Alt+Left", "Go back in history"),
                                 ("Ctrl+H", "Show / hide hidden files"),
                                 ("Ctrl+B", "Show / hide sidebar"),

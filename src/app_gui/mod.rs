@@ -513,11 +513,10 @@ impl FileManagerApp {
             }
         }
         self.status_message = match (restored, failed) {
-            (1, 0) => "Restored 1 item".to_string(),
-            (n, 0) => format!("Restored {} items", n),
-            (n, f) => format!("Restored {} items, {} failed", n, f),
-            (0, 1) => "Undo failed: item could not be restored".to_string(),
             (0, f) => format!("Undo failed on {} items", f),
+            (1, 0) => "Restored 1 item".to_string(),
+            (r, 0) => format!("Restored {} items", r),
+            (r, f) => format!("Restored {} items, {} failed", r, f),
         };
         let _ = self.left_pane.refresh();
         let _ = self.right_pane.refresh();
