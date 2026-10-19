@@ -1,6 +1,5 @@
 use super::FileManagerApp;
 use egui;
-use std::path::PathBuf;
 
 impl FileManagerApp {
     pub(crate) fn render_search_dialog(&mut self, ctx: &egui::Context) {
@@ -149,7 +148,7 @@ impl FileManagerApp {
                             ui.add_space(5.0);
 
                             let results_clone = self.search_results.clone();
-                            let mut navigate_to: Option<PathBuf> = None;
+                            let mut go_to: Option<&crate::filesystem::FileItem> = None;
 
                             egui::ScrollArea::vertical()
                                 .max_height(200.0)
@@ -164,15 +163,15 @@ impl FileManagerApp {
                                             )
                                             .clicked()
                                         {
-                                            if let Some(parent) = item.path.parent() {
-                                                navigate_to = Some(parent.to_path_buf());
-                                            }
+                                            go_to = Some(item);
                                         }
                                     }
                                 });
 
-                            if let Some(path) = navigate_to {
-                                let _ = self.get_active_pane_mut().navigate_to(path);
+                            if let Some(item) = go_to {
+                                let _ = self
+                                    .get_active_pane_mut()
+                                    .navigate_to_containing(&item.path);
                                 self.show_search_dialog = false;
                             }
 

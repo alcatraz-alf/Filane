@@ -24,6 +24,8 @@
 ## Unreleased
 
 ### New Features
+- 🎯 **Go to Containing Folder** - Klik hasil search kini membuka folder induk DAN menempatkan kursor pada item tersebut
+  - `Pane::navigate_to_containing()` navigasi + highlight sekaligus (dengan unit test)
 - 🗑️ **Delete Permanently (Shift+Delete)** - Hapus tanpa lewat Trash, dengan dialog konfirmasi merah "This cannot be undone!"
   - Context menu: "Delete Permanently" di bawah Delete biasa
   - `delete_selected_items(permanent)` menggantikan `delete_selected_file()`; recursive untuk folder (`remove_dir_all`)

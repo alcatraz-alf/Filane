@@ -1,6 +1,6 @@
 use crate::filesystem::{FileItem, read_directory};
 use anyhow::Result;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum SortBy {
@@ -197,8 +197,29 @@ impl Pane {
         Ok(())
     }
 
-    pub fn navigate_to(&mut self, path: PathBuf) -> Result<()> {
-        self.current_path = path.clone();
+    /// Navigate to the directory containing `item_path` and place the cursor
+    /// on that item (used by "go to containing folder" from search results).
+    pub fn navigate_to_containing(&mut self, item_path: &Path) -> Result<()> {
+        let parent = item_path
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| item_path.to_path_buf());
+        let name = item_path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        self.navigate_to(parent)?;
+
+        if !name.is_empty() {
+            if let Some(idx) = self.items.iter().position(|it| it.name == name) {
+                self.selected_index = idx;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn navigate_to(&mut self, path: PathBuf) -> Result<()> {        self.current_path = path.clone();
 
         self.git_repo_path = crate::filesystem::find_git_repo(&path);
 
@@ -267,5 +288,30 @@ impl Pane {
         } else if self.selected_index >= self.scroll_offset + viewport_height {
             self.scroll_offset = self.selected_index - viewport_height + 1;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn navigate_to_containing_selects_item() {
+        let tmp = std::env::temp_dir().join("filane_pane_test");
+        let dir = tmp.join("some_dir");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("target_file.txt"), b"x").unwrap();
+        fs::write(dir.join("other_file.txt"), b"x").unwrap();
+
+        let mut pane = Pane::new(tmp.clone()).unwrap();
+        assert_eq!(pane.selected_index, 0);
+
+        pane.navigate_to_containing(&dir.join("target_file.txt")).unwrap();
+
+        assert_eq!(pane.current_path, dir);
+        assert_eq!(pane.items[pane.selected_index].name, "target_file.txt");
+
+        let _ = fs::remove_dir_all(&tmp);
     }
 }
