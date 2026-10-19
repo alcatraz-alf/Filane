@@ -191,6 +191,95 @@ impl FileManagerApp {
 
     }
 
+    pub(crate) fn render_new_file_dialog(&mut self, ctx: &egui::Context) {
+        if self.show_new_file_dialog {
+            egui::Window::new("📄 Create New File")
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                .frame(
+                    egui::Frame::window(&ctx.style())
+                        .fill(egui::Color32::from_rgb(45, 47, 50))
+                        .rounding(12.0)
+                        .inner_margin(20.0),
+                )
+                .show(ctx, |ui| {
+                    ui.vertical(|ui| {
+                        ui.add_space(5.0);
+                        ui.label(egui::RichText::new("File name:").size(14.0));
+                        ui.add_space(5.0);
+                        let response = ui.add_sized(
+                            [300.0, 30.0],
+                            egui::TextEdit::singleline(&mut self.new_file_name)
+                                .hint_text("Enter file name (e.g. notes.txt)..."),
+                        );
+
+                        if response.changed() && !self.new_file_name.contains('.') {
+                            ui.label(
+                                egui::RichText::new("Tip: add an extension, e.g. notes.txt")
+                                    .weak()
+                                    .size(12.0),
+                            );
+                        }
+                        response.request_focus();
+
+                        ui.add_space(15.0);
+                        ui.horizontal(|ui| {
+                            if ui
+                                .add_sized(
+                                    [140.0, 36.0],
+                                    egui::Button::new(egui::RichText::new("✓ Create").size(14.0))
+                                        .fill(egui::Color32::from_rgb(40, 167, 69))
+                                        .rounding(6.0),
+                                )
+                                .clicked()
+                                || (response.lost_focus()
+                                    && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                            {
+                                if !self.new_file_name.is_empty() {
+                                    let new_path = self
+                                        .get_active_pane()
+                                        .current_path
+                                        .join(&self.new_file_name);
+                                    if new_path.exists() {
+                                        self.status_message =
+                                            format!("File already exists: {}", self.new_file_name);
+                                    } else {
+                                        match fs::write(&new_path, b"") {
+                                            Ok(_) => {
+                                                self.status_message =
+                                                    format!("Created file: {}", self.new_file_name);
+                                                let _ = self.get_active_pane_mut().refresh();
+                                            }
+                                            Err(e) => {
+                                                self.status_message =
+                                                    format!("Error creating file: {}", e);
+                                            }
+                                        }
+                                    }
+                                    self.new_file_name.clear();
+                                    self.show_new_file_dialog = false;
+                                }
+                            }
+                            ui.add_space(10.0);
+                            if ui
+                                .add_sized(
+                                    [140.0, 36.0],
+                                    egui::Button::new(egui::RichText::new("✗ Cancel").size(14.0))
+                                        .fill(egui::Color32::from_rgb(66, 70, 77))
+                                        .rounding(6.0),
+                                )
+                                .clicked()
+                            {
+                                self.new_file_name.clear();
+                                self.show_new_file_dialog = false;
+                            }
+                        });
+                    });
+                });
+        }
+    }
+
     pub(crate) fn render_rename_dialog(&mut self, ctx: &egui::Context) {
         // Rename Dialog
         if self.show_rename_dialog {

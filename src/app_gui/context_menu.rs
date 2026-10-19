@@ -36,8 +36,7 @@ impl FileManagerApp {
                                 // Restore option when browsing inside the trash
                                 if item.name != ".."
                                     && crate::trash::is_trash_path(&self.get_active_pane().current_path.clone())
-                                {
-                                    if ui
+                                {                                    if ui
                                         .add_sized(
                                             [ui.available_width(), 28.0],
                                             egui::Button::new(
@@ -53,6 +52,22 @@ impl FileManagerApp {
                                     }
                                     ui.separator();
                                 }
+
+                                    if ui
+                                        .add_sized(
+                                            [ui.available_width(), 28.0],
+                                            egui::Button::new(
+                                                egui::RichText::new("🖥  Open Terminal Here")
+                                                    .size(13.0),
+                                            )
+                                            .frame(false),
+                                        )
+                                        .clicked()
+                                    {
+                                        let _ = self.open_terminal_here();
+                                        close_menu = true;
+                                    }
+                                    ui.separator();
 
                                 // Open file option (for non-directories)
                                 if !item.is_dir && item.name != ".." {

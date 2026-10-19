@@ -126,6 +126,14 @@ impl FileManagerApp {
                             self.show_new_folder_dialog = true;
                             ui.close_menu();
                         }
+                        if ui.button("📄 New File (Ctrl+Shift+N)").clicked() {
+                            self.show_new_file_dialog = true;
+                            ui.close_menu();
+                        }
+                        if ui.button("🖥 Open Terminal (Ctrl+T)").clicked() {
+                            let _ = self.open_terminal_here();
+                            ui.close_menu();
+                        }
                         if ui.button("✏ Rename (Shift+F2)").clicked() {
                             if let Some(item) = self.get_active_pane().get_selected_item() {
                                 if item.name != ".." {

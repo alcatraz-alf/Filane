@@ -37,6 +37,9 @@ impl FileManagerApp {
                 } else if self.show_new_folder_dialog {
                     self.show_new_folder_dialog = false;
                     self.new_folder_name.clear();
+                } else if self.show_new_file_dialog {
+                    self.show_new_file_dialog = false;
+                    self.new_file_name.clear();
                 } else if self.show_rename_dialog {
                     self.show_rename_dialog = false;
                     self.rename_new_name.clear();
@@ -220,6 +223,16 @@ impl FileManagerApp {
             // Ctrl+N - New folder
             if i.modifiers.ctrl && i.key_pressed(egui::Key::N) {
                 self.show_new_folder_dialog = true;
+            }
+
+            // Ctrl+Shift+N - New file
+            if i.modifiers.ctrl && i.modifiers.shift && i.key_pressed(egui::Key::N) {
+                self.show_new_file_dialog = true;
+            }
+
+            // Ctrl+T - Open terminal in current pane directory
+            if i.modifiers.ctrl && !i.modifiers.shift && i.key_pressed(egui::Key::T) {
+                let _ = self.open_terminal_here();
             }
 
             // Space - Toggle preview panel and update preview

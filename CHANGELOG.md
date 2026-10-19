@@ -24,6 +24,13 @@
 ## Unreleased
 
 ### New Features
+- 🖥️ **Open Terminal Here** - Context menu, menu Commands, atau Ctrl+T membuka terminal di direktori pane aktif
+  - Auto-deteksi terminal emulator: gnome-terminal, konsole, alacritty, kitty, xfce4-terminal, terminator, tilix, x-terminal-emulator
+  - Cross-platform (Linux, macOS, Windows)
+- 📄 **New File** - Buat file kosong dari menu Commands (Ctrl+Shift+N) atau dialog baru
+  - Hint ekstensi + validasi file sudah ada
+
+### New Features
 - 🗜️ **Compress to TAR.GZ** - Context menu kini punya dua opsi compress: ZIP dan TAR.GZ
   - Compress TAR.GZ berjalan di background dengan progress per file dan tombol Cancel
   - Implementasi streaming `tar::Builder` + `flate2::GzEncoder` di `ops.rs` (`tar_dir_bg`)

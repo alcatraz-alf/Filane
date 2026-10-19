@@ -169,6 +169,8 @@ pub struct FileManagerApp {
     pub filter_mode: bool,
     pub show_new_folder_dialog: bool,
     pub new_folder_name: String,
+    pub show_new_file_dialog: bool,
+    pub new_file_name: String,
     pub show_rename_dialog: bool,
     pub rename_new_name: String,
     pub show_about_dialog: bool,
@@ -291,6 +293,8 @@ impl FileManagerApp {
             filter_mode: false,
             show_new_folder_dialog: false,
             new_folder_name: String::new(),
+            show_new_file_dialog: false,
+            new_file_name: String::new(),
             show_rename_dialog: false,
             rename_new_name: String::new(),
             show_about_dialog: false,
@@ -866,6 +870,61 @@ impl FileManagerApp {
         Ok(())
     }
 
+    /// Open the active pane's directory (or a selected folder) in a terminal
+    /// emulator, trying the common ones in turn until one spawns.
+    pub fn open_terminal_here(&mut self) -> Result<()> {
+        let dir = match self.get_active_pane().get_selected_item().map(|i| i.path.clone()) {
+            Some(p) if p.is_dir() && p.file_name().is_some() => p,
+            _ => self.get_active_pane().current_path.clone(),
+        };
+
+        #[cfg(target_os = "linux")]
+        {
+            const CANDIDATES: &[(&str, &str)] = &[
+                ("gnome-terminal", "--working-directory"),
+                ("konsole", "--workdir"),
+                ("alacritty", "--working-directory"),
+                ("kitty", "--working-directory"),
+                ("xfce4-terminal", "--working-directory"),
+                ("terminator", "--working-directory"),
+                ("tilix", "--working-directory"),
+                ("x-terminal-emulator", "--working-directory"),
+            ];
+            for (cmd, flag) in CANDIDATES {
+                let spawned = std::process::Command::new(cmd)
+                    .arg(flag)
+                    .arg(&dir)
+                    .spawn();
+                match spawned {
+                    Ok(_) => {
+                        self.status_message = format!("Opening terminal: {}", cmd);
+                        return Ok(());
+                    }
+                    Err(_) => continue,
+                }
+            }
+            self.status_message = "No terminal emulator found".to_string();
+            anyhow::bail!("No terminal emulator found");
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            std::process::Command::new("open").args(["-a", "Terminal"]).arg(&dir).spawn()?;
+            self.status_message = "Opening Terminal...".to_string();
+            Ok(())
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            std::process::Command::new("cmd")
+                .args(["/C", "start", "", "/D"])
+                .arg(&dir)
+                .spawn()?;
+            self.status_message = "Opening terminal...".to_string();
+            Ok(())
+        }
+    }
+
     /// Restore an item that is currently inside the OS trash back to its
     /// original location.
     pub fn restore_trashed_item(&mut self, path: &std::path::Path, _name: &str) {
@@ -916,7 +975,7 @@ impl FileManagerApp {
         Ok(())
     }
 
-    pub fn compress_item(&mut self, kind: ArchiveKind) -> Result<()> {
+    pub(crate) fn compress_item(&mut self, kind: ArchiveKind) -> Result<()> {
         let item = self.get_active_pane().get_selected_item().cloned();
 
         if let Some(item) = item {
@@ -1094,6 +1153,7 @@ impl eframe::App for FileManagerApp {
 
         self.render_properties_dialog(ctx);
         self.render_new_folder_dialog(ctx);
+        self.render_new_file_dialog(ctx);
         self.render_rename_dialog(ctx);
         self.render_about_dialog(ctx);
         self.render_theme_selector(ctx);
