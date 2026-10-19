@@ -24,8 +24,15 @@
 ## Unreleased
 
 ### New Features
+- 📏 **Directory Sizes** - Kolom size folder menampilkan total ukuran konten berjalan di background (sebelumnya `<DIR>`)
+  - Hitung per folder secara lazy dengan thread (maks 6 thread berjalan), cache TTL 2 menit, indikator "…" saat menghitung
+  - `filesystem::dir_size()` iterative (aman untuk tree dalam) + unit test
+- ⚙️ **Permissions Editor (chmod)** - Properties dialog kini punya field edit mode oktal (e.g. 644) + tombol Apply, prefill otomatis dari mode saat ini
+- 🔗 **Symlink Support** - Context menu "Symlink in other pane" membuat symlink item di folder pane lain
+  - Properties menampilkan "Symlink →" target (read_link) bila item adalah link
+  - `filesystem::create_symlink/is_symlink/symlink_target/set_permissions` + unit test
 - ↩️ **Undo Delete** - Setelah Move to Trash muncul toast dengan tombol "Undo" (8 detik) untuk restore langsung
-  - `push_toast_with_action()` + `undo_trash_paths`, multi-item restore
+  - `push_toast_with_action()` + `undo_trash_moves`, multi-item restore
 - ⌨️ **F1 Help Overlay** - Cheat sheet lengkap shortcut dalam dialog (menu Help → Keyboard Shortcuts)
   - Diverifikasi terhadap binding kode aktual
 - 🎯 **Go to Containing Folder** - Klik hasil search kini membuka folder induk DAN menempatkan kursor pada item tersebut

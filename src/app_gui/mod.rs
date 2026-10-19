@@ -1,8 +1,10 @@
 use crate::pane::{Pane, SortBy, SortOrder};
 use anyhow::Result;
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 mod bars;
 mod context_menu;
@@ -180,6 +182,8 @@ pub struct FileManagerApp {
     pub show_help_dialog: bool,
     pub show_properties_dialog: bool,
     pub properties_item: Option<crate::filesystem::FileItem>,
+    /// Octal chmod input shared with the properties dialog editor.
+    pub chmod_input: String,
     pub current_theme: Theme,
     pub show_theme_selector: bool,
     pub image_viewer: Option<ImageViewerState>,
@@ -215,6 +219,10 @@ pub struct FileManagerApp {
     /// Transient UI notifications (auto-dismiss); replaces the old single
     /// status_message text buried at the end of the status bar.
     pub toasts: Vec<Toast>,
+    /// Background-computed directory sizes (path -> (bytes, computed_at)).
+    pub(crate) dir_size_cache: Arc<Mutex<std::collections::HashMap<PathBuf, (u64, std::time::Instant)>>>,
+    /// Directories currently being measured in background threads.
+    pub(crate) dir_size_pending: Arc<Mutex<HashSet<PathBuf>>>,
     /// Tracks status_message changes so each new message becomes a toast.
     last_status_message: String,
     // Paste conflict dialog state (destination file already exists)
@@ -306,6 +314,7 @@ impl FileManagerApp {
             show_help_dialog: false,
             show_properties_dialog: false,
             properties_item: None,
+            chmod_input: String::new(),
             current_theme: Theme::Dark,
             show_theme_selector: false,
             image_viewer: None,
@@ -345,6 +354,8 @@ impl FileManagerApp {
             paste_conflict_op: None,
             paste_conflict_new_name: String::new(),
             toasts: Vec::new(),
+            dir_size_cache: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            dir_size_pending: Arc::new(Mutex::new(HashSet::new())),
             last_status_message: String::new(),
         };
 
@@ -503,6 +514,44 @@ impl FileManagerApp {
     }
 
     /// Restore previously trashed items (toast "Undo" action).
+    /// Cached directory size for display in listings. On a miss a
+    /// background thread computes the size and inserts it into the cache;
+    /// egui repaints automatically when it lands. Entries expire after 2
+    /// minutes so stale sizes recompute on later visits.
+    pub(crate) fn dir_size_for(&self, ctx: &egui::Context, path: &std::path::Path) -> Option<u64> {
+        const TTL: std::time::Duration = std::time::Duration::from_secs(120);
+        const MAX_PENDING: usize = 6; // cap concurrent measurement threads
+
+        let now = std::time::Instant::now();
+        if let Ok(map) = self.dir_size_cache.lock() {
+            if let Some((size, computed_at)) = map.get(path) {
+                if now.duration_since(*computed_at) < TTL {
+                    return Some(*size);
+                }
+            }
+        }
+
+        let path_buf = path.to_path_buf();
+        if let Ok(mut pending) = self.dir_size_pending.lock() {
+            if pending.len() < MAX_PENDING && pending.insert(path_buf.clone()) {
+                let cache = self.dir_size_cache.clone();
+                let pending = self.dir_size_pending.clone();
+                let ctx = ctx.clone();
+                std::thread::spawn(move || {
+                    let size = crate::filesystem::dir_size(&path_buf);
+                    if let Ok(mut map) = cache.lock() {
+                        map.insert(path_buf.clone(), (size, std::time::Instant::now()));
+                    }
+                    if let Ok(mut pend) = pending.lock() {
+                        pend.remove(&path_buf);
+                    }
+                    ctx.request_repaint();
+                });
+            }
+        }
+        None
+    }
+
     pub fn undo_trash_moves(&mut self, paths: &[std::path::PathBuf]) {
         let mut restored = 0;
         let mut failed = 0;
@@ -932,6 +981,37 @@ impl FileManagerApp {
                 }
             } else if is_dir && name != ".." {
                 self.status_message = "Use Enter or double-click to open directories".to_string();
+            }
+        }
+        Ok(())
+    }
+
+    /// Create a symlink of the selected item inside the other pane's
+    /// directory (dual-pane manager style).
+    pub fn symlink_in_other_pane(&mut self) -> Result<()> {
+        let item = self.get_active_pane().get_selected_item().cloned();
+        if let Some(item) = item {
+            if item.name != ".." {
+                let other_idx = if self.active_pane == 0 { 1 } else { 0 };
+                let link_path = if other_idx == 0 {
+                    self.left_pane.current_path.join(&item.name)
+                } else {
+                    self.right_pane.current_path.join(&item.name)
+                };
+                match crate::filesystem::create_symlink(&item.path, &link_path) {
+                    Ok(_) => {
+                        self.status_message =
+                            format!("✅ Symlink created: {}", link_path.display());
+                        if other_idx == 0 {
+                            let _ = self.left_pane.refresh();
+                        } else {
+                            let _ = self.right_pane.refresh();
+                        }
+                    }
+                    Err(e) => {
+                        self.status_message = format!("❌ Symlink failed: {}", e);
+                    }
+                }
             }
         }
         Ok(())

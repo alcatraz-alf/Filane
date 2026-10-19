@@ -85,6 +85,53 @@ impl FileManagerApp {
                                     ui.label(egui::RichText::new("Path:").strong());
                                     ui.label(item.path.display().to_string());
                                     ui.end_row();
+
+                                    // Symlink target (if the item is a link)
+                                    if crate::filesystem::is_symlink(&item.path) {
+                                        ui.label(egui::RichText::new("Symlink →:").strong());
+                                        ui.label(
+                                            crate::filesystem::symlink_target(&item.path)
+                                                .unwrap_or_else(|| "(unknown)".to_string()),
+                                        );
+                                        ui.end_row();
+                                    }
+
+                                    // Editable chmod field (Unix only)
+                                    #[cfg(unix)]
+                                    {
+                                        ui.label(egui::RichText::new("Change mode:").strong());
+                                        ui.horizontal(|ui| {
+                                            let edit = ui.add_sized(
+                                                [70.0, 24.0],
+                                                egui::TextEdit::singleline(&mut self.chmod_input)
+                                                    .hint_text("e.g. 644")
+                                                    .font(egui::TextStyle::Monospace),
+                                            );
+                                            if ui.button("Apply").clicked() && !self.chmod_input.is_empty() {
+                                                match u32::from_str_radix(&self.chmod_input, 8) {
+                                                    Ok(mode) => {
+                                                        let exclude = item.path.clone();
+                                                        match crate::filesystem::set_permissions(&exclude, mode) {
+                                                            Ok(_) => {
+                                                                self.status_message =
+                                                                    format!("✅ Permissions changed to {:o} on {}", mode, item.name);
+                                                            }
+                                                            Err(e) => {
+                                                                self.status_message =
+                                                                    format!("❌ chmod failed: {}", e);
+                                                            }
+                                                        }
+                                                    }
+                                                    Err(_) => {
+                                                        self.status_message =
+                                                            "Invalid octal value".to_string();
+                                                    }
+                                                }
+                                            }
+                                            let _ = edit;
+                                        });
+                                    }
+                                    ui.end_row();
                                 });
 
                             ui.add_space(15.0);

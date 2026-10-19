@@ -100,6 +100,11 @@ impl FileManagerApp {
                                         .clicked()
                                     {
                                         self.properties_item = Some(item.clone());
+                                        // Prefill the chmod editor with the current octal mode
+                                        match crate::filesystem::get_mode_octal(&item.path) {
+                                            Some(mode) => self.chmod_input = format!("{:o}", mode),
+                                            None => self.chmod_input.clear(),
+                                        }
                                         self.show_properties_dialog = true;
                                         close_menu = true;
                                     }
@@ -209,6 +214,23 @@ impl FileManagerApp {
                                             let _ = self.extract_archive();
                                             close_menu = true;
                                         }
+                                    }
+
+                                    // Symlink in the other pane (Unix only)
+                                    #[cfg(unix)]
+                                    if ui
+                                        .add_sized(
+                                            [ui.available_width(), 28.0],
+                                            egui::Button::new(
+                                                egui::RichText::new("🔗  Symlink in other pane")
+                                                    .size(13.0),
+                                            )
+                                            .frame(false),
+                                        )
+                                        .clicked()
+                                    {
+                                        let _ = self.symlink_in_other_pane();
+                                        close_menu = true;
                                     }
 
                                     ui.separator();

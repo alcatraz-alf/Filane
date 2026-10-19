@@ -581,7 +581,13 @@ impl FileManagerApp {
                             // Size Column
                             row.col(|ui| {
                                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                    let size_str = if item.is_dir { "<DIR>".to_string() } else { crate::filesystem::format_size(item.size) };
+                                    let size_str = if item.is_dir {
+                                        self.dir_size_for(ctx, &item.path)
+                                            .map(crate::filesystem::format_size)
+                                            .unwrap_or_else(|| "…".to_string())
+                                    } else {
+                                        crate::filesystem::format_size(item.size)
+                                    };
                                     ui.label(egui::RichText::new(size_str).size(11.0).monospace());
                                 });
                             });

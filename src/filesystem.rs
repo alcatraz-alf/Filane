@@ -110,6 +110,29 @@ pub fn read_directory(path: &Path) -> Result<Vec<FileItem>> {
     Ok(items)
 }
 
+/// Total byte size of a directory tree (iterative to handle deep trees).
+pub fn dir_size(path: &Path) -> u64 {
+    let mut total = 0u64;
+    let mut stack = vec![path.to_path_buf()];
+    while let Some(current) = stack.pop() {
+        if let Ok(entries) = std::fs::read_dir(&current) {
+            for entry in entries.flatten() {
+                let entry_path = entry.path();
+                match entry.file_type() {
+                    Ok(ft) if ft.is_symlink() => {} // skip links to avoid loops/dupes
+                    Ok(ft) if ft.is_dir() => stack.push(entry_path),
+                    _ => {
+                        if let Ok(meta) = entry.metadata() {
+                            total += meta.len();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    total
+}
+
 pub fn format_size(size: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = KB * 1024;
@@ -130,6 +153,76 @@ pub fn format_date(time: SystemTime) -> String {
     use chrono::{DateTime, Local};
     let datetime: DateTime<Local> = time.into();
     datetime.format("%Y-%m-%d %H:%M").to_string()
+}
+
+/// Apply a chmod-style octal mode (e.g. "644", "755") to a path. Unix only.
+#[cfg(unix)]
+pub fn get_mode_octal(path: &Path) -> Option<u32> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::metadata(path)
+        .ok()
+        .map(|m| m.permissions().mode() & 0o777)
+}
+
+/// Apply a chmod-style octal mode (e.g. "644", "755") to a path. Unix only.
+#[cfg(unix)]
+pub fn set_permissions(path: &Path, mode_octal: u32) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    if mode_octal > 0o777 {
+        anyhow::bail!("Invalid permission mode");
+    }
+    let perms = std::fs::Permissions::from_mode(mode_octal);
+    fs::set_permissions(path, perms)?;
+    Ok(())
+}
+
+/// Read-only flag setter (the Windows counterpart of chmod).
+#[cfg(windows)]
+pub fn set_permissions(path: &Path, readonly: bool) -> Result<()> {
+    let mut perms = fs::metadata(path)?.permissions();
+    perms.set_readonly(readonly);
+    fs::set_permissions(path, perms)?;
+    Ok(())
+}
+
+/// Return true if the path is a symlink that exists (dangling links report
+/// false in the dir listing and get skipped for sizes).
+pub fn is_symlink(path: &Path) -> bool {
+    let _ = path;
+    #[cfg(unix)]
+    {
+        std::fs::symlink_metadata(path)
+            .map(|m| m.file_type().is_symlink())
+            .unwrap_or(false)
+    }
+    #[cfg(windows)]
+    {
+        std::fs::symlink_metadata(path)
+            .map(|m| m.file_type().is_symlink())
+            .unwrap_or(false)
+    }
+}
+
+/// Resolve where a symlink points to (empty if not a symlink).
+pub fn symlink_target(path: &Path) -> Option<String> {
+    std::fs::read_link(path)
+        .ok()
+        .map(|p| p.to_string_lossy().to_string())
+}
+
+/// Create a symlink at `link_path` pointing at `target`. Works for files and
+/// directories on Unix; on Windows this returns an error instead.
+pub fn create_symlink(target: &Path, link_path: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(target, link_path)?;
+        Ok(())
+    }
+    #[cfg(windows)]
+    {
+        let _ = (target, link_path);
+        anyhow::bail!("Symlink creation needs developer mode/admin on Windows")
+    }
 }
 
 pub fn get_permissions(path: &Path) -> Result<(String, String)> {
@@ -994,4 +1087,52 @@ pub fn get_mount_points() -> Vec<MountPoint> {
     });
 
     mount_points
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dir_size_counts_files_recursively() {
+        let tmp = std::env::temp_dir().join("filane_dirsize_test");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(tmp.join("sub/deep")).unwrap();
+        std::fs::write(tmp.join("a.txt"), vec![0u8; 10]).unwrap();
+        std::fs::write(tmp.join("sub").join("b.bin"), vec![0u8; 20]).unwrap();
+        std::fs::write(tmp.join("sub/deep").join("c.bin"), vec![0u8; 30]).unwrap();
+
+        assert_eq!(dir_size(&tmp), 60);
+        assert_eq!(dir_size(&tmp.join("sub")), 50);
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn permissions_and_symlinks() {
+        let tmp = std::env::temp_dir().join("filane_chmod_test");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        let file = tmp.join("file.txt");
+        std::fs::write(&file, b"x").unwrap();
+
+        // chmod roundtrip
+        set_permissions(&file, 0o600).unwrap();
+        assert_eq!(get_mode_octal(&file), Some(0o600));
+        set_permissions(&file, 0o644).unwrap();
+        assert_eq!(get_mode_octal(&file), Some(0o644));
+        assert!(set_permissions(&file, 0o1000).is_err());
+
+        // symlink creation + inspection
+        let link = tmp.join("link.txt");
+        create_symlink(&file, &link).unwrap();
+        assert!(is_symlink(&link));
+        assert_eq!(
+            symlink_target(&link),
+            Some(file.to_string_lossy().to_string())
+        );
+        assert!(!is_symlink(&file));
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
 }
