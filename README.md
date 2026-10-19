@@ -57,7 +57,7 @@ Filane is a modern dual-pane file manager built with Rust, featuring two efficie
   - Nord - Arctic, north-bluish theme
   - Monokai - Classic code editor theme
   - Solarized Dark - Precision colors theme
-- 🔍 **Quick Filter** (Ctrl+F) - Filter files in real-time by name
+- 🔍 **Quick Filter** (Ctrl+F) - Filter files in real-time by name, with fuzzy matching (e.g. `ctm` matches `Cargo.toml`)
 - 🔎 **Advanced Search** (Ctrl+Shift+F) - Powerful search with multiple criteria
   - **File name pattern:** Wildcard search (*.rs, document*, photo*)
   - **Content search:** Search text within files
@@ -90,7 +90,7 @@ Filane is a modern dual-pane file manager built with Rust, featuring two efficie
   - ⬅✂ Move Right → Left (orange)
 - 🗃️ **Archive Support** - Compress and extract file archives
   - **Compress:** Create ZIP archives from files/folders (context menu → "Compress to ZIP")
-  - **Extract:** Extract ZIP archives (context menu → "Extract ZIP")
+  - **Extract:** Extract ZIP, TAR, TAR.GZ and TGZ archives (context menu → "Extract Archive")
   - Cross-platform support (Windows, Linux, macOS)
   - Progress feedback in status bar
 - 💡 **Tooltips** - Hover over buttons to see their function
@@ -119,6 +119,10 @@ Filane is a modern dual-pane file manager built with Rust, featuring two efficie
   - **Menu Access (GUI):** Commands → Mount Points
   - **Auto-detect:** Automatically detects git repository in current directory
   - **Performance:** Lightweight, doesn't slow down file browsing
+- ⚡ **Background File Operations** - Copy, move, compress and extract run in a background thread
+  - Progress dialog with percentage, current file, file count and bytes
+  - Cancel with the Cancel button or ESC
+  - UI stays responsive during large transfers
 - ⭐ **Bookmarks & Sidebar** - Quick access navigation with left sidebar
   - **Sidebar Panel:** Toggle with Ctrl+B, menu Files, or floating button (◀/▶)
   - **Floating Toggle Button:** Always-visible button on edge for show/hide sidebar
@@ -145,7 +149,7 @@ Filane is a modern dual-pane file manager built with Rust, featuring two efficie
 
 #### Download AppImage (Linux)
 
-**📥 [Download Filane-Dual_Pane_File_Manager-0.2.0-x86_64.AppImage](releases/Filane-Dual_Pane_File_Manager-0.2.0-x86_64.AppImage)** 
+**📥 [Download Filane-Dual_Pane_File_Manager-0.3.0-x86_64.AppImage](releases/v0.3.0/Filane-Dual_Pane_File_Manager-0.3.0-x86_64.AppImage)** 
 
 For installation instructions, see [releases/README.md](releases/README.md)
 
@@ -284,10 +288,25 @@ dual-pane-fm/
 │   │   ├── gui.rs      # GUI entry point (egui)
 │   │   └── tui.rs      # TUI entry point (ratatui)
 │   ├── app.rs          # TUI application state
-│   ├── app_gui.rs      # GUI application state
+│   ├── app_gui/        # GUI application (split into modules)
+│   │   ├── mod.rs              # FileManagerApp state, core ops, update() orchestrator
+│   │   ├── bars.rs             # Filter, function & status bars
+│   │   ├── context_menu.rs     # Right-click menu
+│   │   ├── dialogs_*.rs        # Dialogs (file, info, search, system, ops/progress)
+│   │   ├── image_viewer.rs     # Built-in image viewer
+│   │   ├── keys.rs             # Keyboard shortcuts
+│   │   ├── main_area.rs        # Central dual-pane layout
+│   │   ├── menu.rs             # Top menu bar
+│   │   ├── pane_view.rs        # File list, function bar, transfer buttons
+│   │   ├── preview.rs          # Preview panel
+│   │   ├── sidebar.rs          # Sidebar sections
+│   │   ├── sidebar_panel.rs    # Sidebar panel & toggle
+│   │   └── theme.rs            # Themes
 │   ├── bookmarks.rs    # Bookmark manager & quick access
+│   ├── fuzzy.rs        # Fuzzy matching for quick filter
+│   ├── ops.rs          # Background file operations (progress & cancel)
 │   ├── pane.rs         # Panel logic & navigation
-│   ├── filesystem.rs   # File system operations
+│   ├── filesystem.rs   # File system operations (zip, tar, tar.gz)
 │   ├── ui.rs           # TUI rendering
 │   └── lib.rs          # Library exports
 └── Cargo.toml
@@ -305,6 +324,7 @@ dual-pane-fm/
 - `egui_extras` - Extra widgets for egui
 - `image` - Image loading and processing
 - `zip` - ZIP archive compression and extraction
+- `tar` & `flate2` - TAR and TAR.GZ archive support
 - `serde` & `serde_json` - Serialization for bookmarks storage
 
 **Shared:**

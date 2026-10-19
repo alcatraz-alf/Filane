@@ -4,12 +4,12 @@ This folder contains pre-built AppImage releases of Filane for Linux.
 
 ## Latest Release
 
-**Version:** 0.1.0  
-**Date:** 2026-01-03
+**Version:** 0.3.0  
+**Date:** 2026-10-19
 
 ### Downloads
 
-- **Filane-Dual_Pane_File_Manager-0.1.0-x86_64.AppImage** (8.5 MB)
+- **v0.3.0/Filane-Dual_Pane_File_Manager-0.3.0-x86_64.AppImage** (8.7 MB)
 
 ## Quick Start
 
@@ -17,13 +17,13 @@ This folder contains pre-built AppImage releases of Filane for Linux.
 
 ```bash
 # Download
-wget https://github.com/yourusername/dual-pane-fm/raw/main/releases/Filane-Dual_Pane_File_Manager-0.1.0-x86_64.AppImage
+wget https://github.com/yourusername/dual-pane-fm/raw/main/releases/v0.3.0/Filane-Dual_Pane_File_Manager-0.3.0-x86_64.AppImage
 
 # Make executable
-chmod +x Filane-Dual_Pane_File_Manager-0.1.0-x86_64.AppImage
+chmod +x Filane-Dual_Pane_File_Manager-0.3.0-x86_64.AppImage
 
 # Run
-./Filane-Dual_Pane_File_Manager-0.1.0-x86_64.AppImage
+./Filane-Dual_Pane_File_Manager-0.3.0-x86_64.AppImage
 ```
 
 ### Install System-Wide
@@ -33,11 +33,11 @@ chmod +x Filane-Dual_Pane_File_Manager-0.1.0-x86_64.AppImage
 sudo mkdir -p /opt/filane
 
 # Copy AppImage
-sudo cp Filane-Dual_Pane_File_Manager-0.1.0-x86_64.AppImage /opt/filane/
-sudo chmod +x /opt/filane/Filane-Dual_Pane_File_Manager-0.1.0-x86_64.AppImage
+sudo cp Filane-Dual_Pane_File_Manager-0.3.0-x86_64.AppImage /opt/filane/
+sudo chmod +x /opt/filane/Filane-Dual_Pane_File_Manager-0.3.0-x86_64.AppImage
 
 # Create symlink
-sudo ln -sf /opt/filane/Filane-Dual_Pane_File_Manager-0.1.0-x86_64.AppImage /usr/local/bin/filane-gui
+sudo ln -sf /opt/filane/Filane-Dual_Pane_File_Manager-0.3.0-x86_64.AppImage /usr/local/bin/filane-gui
 
 # Run from terminal
 filane-gui
@@ -56,7 +56,9 @@ filane-gui
 🖼️ **Image Viewer** - Built-in image preview and zoom  
 📄 **File Comparison** - Compare text files side-by-side  
 🎨 **Theme Customization** - 6 built-in themes  
-📋 **Archive Support** - Compress and extract ZIP files  
+📋 **Archive Support** - Compress and extract ZIP, TAR, TAR.GZ files
+⚡ **Background Operations** - Copy/move/compress/extract with progress & cancel
+🔍 **Fuzzy Filter** - Quick filter with fuzzy matching  
 🔷 **Git Integration** - Visual git status indicators  
 ⭐ **Bookmarks & Sidebar** - Quick access navigation  
 🗑️ **Trash Support** - Browse and manage deleted files  
@@ -77,4 +79,4 @@ Support development: https://www.paypal.com/paypalme/AchmadFachrie
 
 ---
 
-**Last Updated:** 2026-01-03
+**Last Updated:** 2026-10-19
