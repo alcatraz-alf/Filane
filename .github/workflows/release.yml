@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and publish AppImage
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release binaries
+        run: cargo build --release --bin dual-pane-fm-gui
+
+      - name: Assemble AppDir
+        run: |
+          mkdir -p AppDir/usr/bin
+          cp target/release/dual-pane-fm-gui AppDir/usr/bin/dual-pane-fm-gui
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Pack AppImage
+        run: |
+          wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir \
+            "Filane-Dual_Pane_File_Manager-${VERSION}-x86_64.AppImage"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Filane ${{ github.ref_name }}
+          body: |
+            Filane - Dual Pane File Manager ${{ github.ref_name }}
+
+            ## New Features
+            See [CHANGELOG.md](https://github.com/alcatraz-alf/Filane/blob/main/CHANGELOG.md) for details.
+
+            ## Install
+            ```bash
+            chmod +x Filane-Dual_Pane_File_Manager-*-x86_64.AppImage
+            ./Filane-Dual_Pane_File_Manager-*-x86_64.AppImage
+            ```
+          files: |
+            Filane-Dual_Pane_File_Manager-*-x86_64.AppImage
