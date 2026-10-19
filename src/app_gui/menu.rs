@@ -183,6 +183,10 @@ impl FileManagerApp {
                     });
 
                     ui.menu_button("Help", |ui| {
+                        if ui.button("⌨  Keyboard Shortcuts (F1)").clicked() {
+                            self.show_help_dialog = true;
+                            ui.close_menu();
+                        }
                         if ui.button("⚡ About").clicked() {
                             self.show_about_dialog = true;
                             ui.close_menu();

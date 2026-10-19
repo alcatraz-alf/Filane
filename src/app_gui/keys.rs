@@ -59,6 +59,8 @@ impl FileManagerApp {
                 } else if self.show_compare_dialog {
                     self.show_compare_dialog = false;
                     self.comparison_result = None;
+                } else if self.show_help_dialog {
+                    self.show_help_dialog = false;
                 } else {
                     self.get_active_pane_mut().clear_selection();
                     return;
@@ -220,6 +222,11 @@ impl FileManagerApp {
             // Ctrl+D - Compare files
             if i.modifiers.ctrl && i.key_pressed(egui::Key::D) {
                 let _ = self.compare_selected_files();
+            }
+
+            // F1 - Keyboard shortcuts help
+            if i.key_pressed(egui::Key::F1) {
+                self.show_help_dialog = true;
             }
 
             // Ctrl+N - New folder

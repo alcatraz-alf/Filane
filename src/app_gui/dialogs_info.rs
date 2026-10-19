@@ -3,6 +3,101 @@ use super::Theme;
 use egui;
 
 impl FileManagerApp {
+    pub(crate) fn render_help_dialog(&mut self, ctx: &egui::Context) {
+        // Keyboard shortcuts cheat sheet
+        if self.show_help_dialog {
+            egui::Window::new("⌨  Keyboard Shortcuts")
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                .frame(
+                    egui::Frame::window(&ctx.style())
+                        .fill(egui::Color32::from_rgb(45, 47, 50))
+                        .rounding(12.0)
+                        .inner_margin(25.0),
+                )
+                .show(ctx, |ui| {
+                    const SECTIONS: &[(&str, &[(&str, &str)])] = &[
+                        (
+                            "📂 Navigation",
+                            &[
+                                ("Tab", "Switch between panes"),
+                                ("Enter", "Open file / directory"),
+                                ("Alt+Left", "Go back in history"),
+                                ("Ctrl+H", "Show / hide hidden files"),
+                                ("Ctrl+B", "Show / hide sidebar"),
+                                ("Ctrl+T", "Open terminal here"),
+                            ],
+                        ),
+                        (
+                            "✂️ Files",
+                            &[
+                                ("Ctrl+C / Ctrl+X", "Copy / cut to clipboard"),
+                                ("Ctrl+V / F7", "Paste"),
+                                ("F5", "Copy (Total Commander style)"),
+                                ("F6", "Move (Total Commander style)"),
+                                ("F2", "Refresh both panes"),
+                                ("Shift+F2", "Rename selected item"),
+                                ("Ctrl+N", "Create new folder"),
+                                ("Ctrl+Shift+N", "Create new file"),
+                                ("Delete / F8", "Move to Trash"),
+                                ("Shift+Delete", "Delete permanently (no Trash)"),
+                                ("Ctrl+D", "Compare two selected files"),
+                            ],
+                        ),
+                        (
+                            "🎛 View",
+                            &[
+                                ("Ctrl+F", "Quick filter (fuzzy match)"),
+                                ("F3", "Open file with default app"),
+                                ("Space", "Toggle preview panel"),
+                                ("F1", "Show this help"),
+                                ("ESC", "Close dialog / clear selection"),
+                            ],
+                        ),
+                    ];
+                    egui::ScrollArea::vertical().max_height(420.0).show(ui, |ui| {
+                        for (title, rows) in SECTIONS {
+                            ui.add_space(8.0);
+                            ui.label(
+                                egui::RichText::new(*title)
+                                    .size(14.0)
+                                    .strong()
+                                    .color(egui::Color32::from_rgb(138, 180, 248)),
+                            );
+                            ui.separator();
+                            for (key, desc) in *rows {
+                                ui.horizontal(|ui| {
+                                    ui.monospace(
+                                        egui::RichText::new(*key)
+                                            .size(13.0)
+                                            .color(egui::Color32::from_rgb(251, 188, 5)),
+                                    );
+                                    ui.label(
+                                        egui::RichText::new(" — ").weak(),
+                                );
+                                    ui.label(egui::RichText::new(*desc).size(13.0));
+                                });
+                            }
+                        }
+                    });
+            ui.add_space(12.0);
+            ui.vertical_centered(|ui| {
+                if ui
+                    .add_sized(
+                        [140.0, 34.0],
+                        egui::Button::new(egui::RichText::new("✗ Close").size(13.0))
+                            .fill(egui::Color32::from_rgb(66, 70, 77)),
+                    )
+                    .clicked()
+                {
+                    self.show_help_dialog = false;
+                }
+            });
+                });
+        }
+    }
+
     pub(crate) fn render_about_dialog(&mut self, ctx: &egui::Context) {
         let visuals = ctx.style().visuals.clone();
         // About Dialog

@@ -24,6 +24,10 @@
 ## Unreleased
 
 ### New Features
+- ↩️ **Undo Delete** - Setelah Move to Trash muncul toast dengan tombol "Undo" (8 detik) untuk restore langsung
+  - `push_toast_with_action()` + `undo_trash_paths`, multi-item restore
+- ⌨️ **F1 Help Overlay** - Cheat sheet lengkap shortcut dalam dialog (menu Help → Keyboard Shortcuts)
+  - Diverifikasi terhadap binding kode aktual
 - 🎯 **Go to Containing Folder** - Klik hasil search kini membuka folder induk DAN menempatkan kursor pada item tersebut
   - `Pane::navigate_to_containing()` navigasi + highlight sekaligus (dengan unit test)
 - 🗑️ **Delete Permanently (Shift+Delete)** - Hapus tanpa lewat Trash, dengan dialog konfirmasi merah "This cannot be undone!"

@@ -122,6 +122,8 @@ pub struct Toast {
     pub kind: ToastKind,
     /// Seconds since creation, advanced each frame.
     pub age: f32,
+    /// Optional "Undo" action carrying the trash paths to restore.
+    pub undo_paths: Option<Vec<std::path::PathBuf>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -175,6 +177,7 @@ pub struct FileManagerApp {
     pub show_rename_dialog: bool,
     pub rename_new_name: String,
     pub show_about_dialog: bool,
+    pub show_help_dialog: bool,
     pub show_properties_dialog: bool,
     pub properties_item: Option<crate::filesystem::FileItem>,
     pub current_theme: Theme,
@@ -300,6 +303,7 @@ impl FileManagerApp {
             show_rename_dialog: false,
             rename_new_name: String::new(),
             show_about_dialog: false,
+            show_help_dialog: false,
             show_properties_dialog: false,
             properties_item: None,
             current_theme: Theme::Dark,
@@ -371,12 +375,23 @@ impl FileManagerApp {
 
     /// Push a toast notification (newest on top).
     pub fn push_toast(&mut self, text: impl Into<String>, kind: ToastKind) {
+        self.push_toast_with_action(text, kind, None);
+    }
+
+    /// Push a toast with an optional Undo action (newest on top).
+    pub fn push_toast_with_action(
+        &mut self,
+        text: impl Into<String>,
+        kind: ToastKind,
+        undo_paths: Option<Vec<std::path::PathBuf>>,
+    ) {
         self.toasts.insert(
             0,
             Toast {
                 text: text.into(),
                 kind,
                 age: 0.0,
+                undo_paths,
             },
         );
         // Cap so a burst of errors doesn't stack unbounded
@@ -395,13 +410,16 @@ impl FileManagerApp {
             toast.age += dt;
         }
 
-        // Expire after 3.5s
-        self.toasts.retain(|t| t.age < 3.5);
+        // Expire after 3.5s (longer when an Undo action is attached)
+        self.toasts.retain(|t| {
+            t.age < if t.undo_paths.is_some() { 8.0 } else { 3.5 }
+        });
         if self.toasts.is_empty() {
             return;
         }
 
         let screen = ctx.screen_rect();
+        let mut clicked_undo = false;
         egui::Area::new(egui::Id::new("toasts"))
             .anchor(
                 egui::Align2::CENTER_BOTTOM,
@@ -447,14 +465,62 @@ impl FileManagerApp {
                                         .size(13.0)
                                         .color(text_col),
                                 );
+
+                                if toast.undo_paths.is_some() {
+                                    if ui
+                                        .add(
+                                            egui::Button::new(
+                                                egui::RichText::new("↩ Undo")
+                                                    .size(12.0)
+                                                    .color(text_col),
+                                            )
+                                            .fill(egui::Color32::from_rgb(66, 70, 77)),
+                                        )
+                                        .clicked()
+                                    {
+                                        clicked_undo = true;
+                                    }
+                                }
                             });
                         });
                     ui.add_space(6.0);
                 }
             });
 
+        // Undo button was clicked: restore the newest undoable deletion
+        if clicked_undo {
+            if let Some(idx) = self.toasts.iter().position(|t| t.undo_paths.is_some()) {
+                let paths = self.toasts[idx].undo_paths.clone();
+                self.toasts.remove(idx);
+                if let Some(paths) = paths {
+                    self.undo_trash_moves(&paths);
+                }
+            }
+        }
+
         // Keep repainting while toasts fade out
         ctx.request_repaint_after(std::time::Duration::from_millis(100));
+    }
+
+    /// Restore previously trashed items (toast "Undo" action).
+    pub fn undo_trash_moves(&mut self, paths: &[std::path::PathBuf]) {
+        let mut restored = 0;
+        let mut failed = 0;
+        for path in paths {
+            match crate::trash::restore_from_trash(path) {
+                Ok(_) => restored += 1,
+                Err(_) => failed += 1,
+            }
+        }
+        self.status_message = match (restored, failed) {
+            (1, 0) => "Restored 1 item".to_string(),
+            (n, 0) => format!("Restored {} items", n),
+            (n, f) => format!("Restored {} items, {} failed", n, f),
+            (0, 1) => "Undo failed: item could not be restored".to_string(),
+            (0, f) => format!("Undo failed on {} items", f),
+        };
+        let _ = self.left_pane.refresh();
+        let _ = self.right_pane.refresh();
     }
 
     pub fn start_operation(&mut self, op: crate::ops::Operation) {
@@ -978,9 +1044,13 @@ impl FileManagerApp {
             // Move to the OS trash instead of permanently deleting, so the
             // user can recover from accidental deletions.
             let mut moved_count = 0;
+            let mut moved_paths: Vec<std::path::PathBuf> = Vec::new();
             for (path, _is_dir, name) in &items_to_delete {
                 match crate::trash::move_to_trash(path) {
-                    Ok(_) => moved_count += 1,
+                    Ok(trash_path) => {
+                        moved_count += 1;
+                        moved_paths.push(trash_path);
+                    }
                     Err(e) => {
                         self.status_message =
                             format!("❌ Failed to move '{}' to trash: {}", name, e);
@@ -994,6 +1064,14 @@ impl FileManagerApp {
             } else {
                 format!("Moved {} items to Trash", moved_count)
             };
+            // Attach an Undo action to the deletion toast so the move can be
+            // reversed for a few seconds without opening the trash browser.
+            self.push_toast_with_action(
+                self.status_message.clone(),
+                ToastKind::Info,
+                Some(moved_paths),
+            );
+            self.last_status_message = self.status_message.clone();
         }
 
         self.get_active_pane_mut().clear_selection();
@@ -1182,6 +1260,7 @@ impl eframe::App for FileManagerApp {
         self.render_new_file_dialog(ctx);
         self.render_rename_dialog(ctx);
         self.render_about_dialog(ctx);
+        self.render_help_dialog(ctx);
         self.render_theme_selector(ctx);
         self.render_search_dialog(ctx);
         self.render_compare_dialog(ctx);
