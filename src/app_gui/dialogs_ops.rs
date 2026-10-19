@@ -317,6 +317,31 @@ impl FileManagerApp {
                             ui.add_space(14.0);
                             ui.horizontal(|ui| {
                                 if running {
+                                    // Pause / Resume toggle
+                                    let (pause_label, paused_now) = if snap.paused {
+                                        ("▶  Resume", true)
+                                    } else {
+                                        ("⏸  Pause", false)
+                                    };
+                                    if ui
+                                        .add_sized(
+                                            [110.0, 34.0],
+                                            egui::Button::new(
+                                                egui::RichText::new(pause_label).size(13.0),
+                                            )
+                                            .fill(egui::Color32::from_rgb(66, 70, 77))
+                                            .rounding(6.0),
+                                        )
+                                        .clicked()
+                                    {
+                                        if let Some(runner) = &self.op_runner {
+                                            if paused_now {
+                                                runner.resume();
+                                            } else {
+                                                runner.pause();
+                                            }
+                                        }
+                                    }
                                     if ui
                                         .add_sized(
                                             [120.0, 34.0],

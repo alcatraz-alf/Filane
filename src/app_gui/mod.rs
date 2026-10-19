@@ -128,6 +128,30 @@ pub struct Toast {
     pub undo_paths: Option<Vec<std::path::PathBuf>>,
 }
 
+/// Shared state for the directory-change poller: each pane's displayed
+/// directory, its last-seen mtime, and a per-pane "contents changed" flag.
+pub(crate) struct WatcherShared {
+    pub watched: Mutex<[Option<PathBuf>; 2]>,
+    pub seen: Mutex<[Option<std::time::SystemTime>; 2]>,
+    pub changed: [std::sync::atomic::AtomicBool; 2],
+    /// Set while a background op runs so Auto-refresh stays out of the way.
+    pub ops_running: std::sync::atomic::AtomicBool,
+}
+
+impl WatcherShared {
+    fn new() -> Self {
+        Self {
+            watched: Mutex::new([None, None]),
+            seen: Mutex::new([None, None]),
+            changed: [
+                std::sync::atomic::AtomicBool::new(false),
+                std::sync::atomic::AtomicBool::new(false),
+            ],
+            ops_running: std::sync::atomic::AtomicBool::new(false),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ToastKind {
     Info,
@@ -214,6 +238,8 @@ pub struct FileManagerApp {
     pub filter_doc: bool,
     pub filter_xls: bool,
     pub op_runner: Option<crate::ops::OpRunner>,
+    /// Operations waiting for the current background op to finish.
+    pub op_queue: Vec<crate::ops::Operation>,
     pub show_progress_dialog: bool,
     pub op_result_message: Option<String>,
     /// Transient UI notifications (auto-dismiss); replaces the old single
@@ -223,6 +249,10 @@ pub struct FileManagerApp {
     pub(crate) dir_size_cache: Arc<Mutex<std::collections::HashMap<PathBuf, (u64, std::time::Instant)>>>,
     /// Directories currently being measured in background threads.
     pub(crate) dir_size_pending: Arc<Mutex<HashSet<PathBuf>>>,
+    /// Directory-change poller shared state (auto refresh).
+    pub(crate) watch_state: Arc<WatcherShared>,
+    /// egui context clone for background threads (repaint requests).
+    pub(crate) egui_ctx: egui::Context,
     /// Tracks status_message changes so each new message becomes a toast.
     last_status_message: String,
     // Paste conflict dialog state (destination file already exists)
@@ -345,6 +375,7 @@ impl FileManagerApp {
             filter_doc: false,
             filter_xls: false,
             op_runner: None,
+            op_queue: Vec::new(),
             show_progress_dialog: false,
             op_result_message: None,
             show_paste_conflict: false,
@@ -356,6 +387,8 @@ impl FileManagerApp {
             toasts: Vec::new(),
             dir_size_cache: Arc::new(Mutex::new(std::collections::HashMap::new())),
             dir_size_pending: Arc::new(Mutex::new(HashSet::new())),
+            watch_state: Arc::new(WatcherShared::new()),
+            egui_ctx: cc.egui_ctx.clone(),
             last_status_message: String::new(),
         };
 
@@ -381,7 +414,52 @@ impl FileManagerApp {
             let _ = app.right_pane.refresh();
         }
 
+        app.spawn_dir_watcher();
+
         app
+    }
+
+    /// Start the background poller that watches both panes' directories and
+    /// triggers a refresh when their contents change from outside the app.
+    fn spawn_dir_watcher(&self) {
+        let state = self.watch_state.clone();
+        let left = self.left_pane.current_path.clone();
+        let right = self.right_pane.current_path.clone();
+        if let Ok(mut watched) = state.watched.lock() {
+            watched[0] = Some(left);
+            watched[1] = Some(right);
+        }
+        let ctx = self.egui_ctx.clone();
+        std::thread::spawn(move || loop {
+            std::thread::sleep(std::time::Duration::from_millis(1500));
+
+            if state.ops_running.load(std::sync::atomic::Ordering::Relaxed) {
+                continue;
+            }
+
+            for i in 0..2 {
+                let path = match state.watched.lock().ok().and_then(|w| w[i].clone()) {
+                    Some(p) => p,
+                    None => continue,
+                };
+                if !path.exists() {
+                    continue;
+                }
+                let modified = std::fs::symlink_metadata(&path).and_then(|m| m.modified()).ok();
+                let mut seen = match state.seen.lock() {
+                    Ok(s) => s,
+                    Err(_) => continue,
+                };
+                if seen[i].is_none() {
+                    seen[i] = modified;
+                } else if seen[i] != modified {
+                    seen[i] = modified;
+                    state.changed[i]
+                        .store(true, std::sync::atomic::Ordering::Relaxed);
+                    ctx.request_repaint();
+                }
+            }
+        });
     }
 
     /// Push a toast notification (newest on top).
@@ -573,7 +651,10 @@ impl FileManagerApp {
 
     pub fn start_operation(&mut self, op: crate::ops::Operation) {
         if self.op_runner.is_some() {
-            self.status_message = "Another operation is already running".to_string();
+            // Queue instead of dropping the user's request
+            self.op_queue.push(op);
+            self.status_message =
+                format!("⏳ Queued ({} waiting)", self.op_queue.len());
             return;
         }
         match crate::ops::OpRunner::start(op) {
@@ -581,6 +662,10 @@ impl FileManagerApp {
                 self.op_runner = Some(runner);
                 self.show_progress_dialog = true;
                 self.op_result_message = None;
+                if !self.op_queue.is_empty() {
+                    self.status_message =
+                        format!("Started; {} queued", self.op_queue.len());
+                }
             }
             Err(e) => {
                 self.status_message = format!("❌ Failed to start operation: {}", e);
@@ -623,6 +708,12 @@ impl FileManagerApp {
             self.show_progress_dialog = true; // keep dialog to show result
             let _ = self.left_pane.refresh();
             let _ = self.right_pane.refresh();
+
+            // Launch the next queued operation, if any
+            if !self.op_queue.is_empty() {
+                let next = self.op_queue.remove(0);
+                self.start_operation(next);
+            }
         }
     }
 
@@ -1302,6 +1393,45 @@ impl eframe::App for FileManagerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Poll background operation
         self.poll_operation(ctx);
+
+        // Auto-refresh poller sync: watched paths + ops guard + refresh flags
+        {
+            let paths = [
+                Some(self.left_pane.current_path.clone()),
+                Some(self.right_pane.current_path.clone()),
+            ];
+            if let Ok(mut watched) = self.watch_state.watched.lock() {
+                watched.clone_from(&paths);
+            }
+            if let Ok(mut seen) = self.watch_state.seen.lock() {
+                for i in 0..2 {
+                    // Re-baseline whenever the watched dir changes
+                    let baseline = paths[i].clone().and_then(|p| {
+                        std::fs::symlink_metadata(&p)
+                            .and_then(|m| m.modified())
+                            .ok()
+                    });
+                    if seen[i] != baseline {
+                        seen[i] = baseline;
+                    }
+                }
+            }
+            self.watch_state.ops_running.store(
+                self.op_runner.is_some(),
+                std::sync::atomic::Ordering::Relaxed,
+            );
+            for i in 0..2 {
+                if self.watch_state.changed[i]
+                    .swap(false, std::sync::atomic::Ordering::Relaxed)
+                {
+                    if i == 0 {
+                        let _ = self.left_pane.refresh();
+                    } else {
+                        let _ = self.right_pane.refresh();
+                    }
+                }
+            }
+        }
 
         // Every status_message change surfaces as a transient toast so it
         // can't be lost at the end of a long status bar.

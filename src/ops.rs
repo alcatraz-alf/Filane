@@ -61,11 +61,14 @@ pub struct OperationState {
     pub finished: bool,
     pub error: Option<String>,
     pub cancelled: bool,
+    /// True while the operation is paused by the user.
+    pub paused: bool,
 }
 
 struct SharedState {
     state: Mutex<OperationState>,
     cancel: AtomicBool,
+    pause: AtomicBool,
     bytes_done: AtomicU64,
     files_done: AtomicU64,
 }
@@ -94,6 +97,24 @@ impl SharedState {
     fn is_cancelled(&self) -> bool {
         self.cancel.load(Ordering::Relaxed)
     }
+
+    fn set_paused(&self, paused: bool) {
+        self.pause.store(paused, Ordering::Relaxed);
+        if let Ok(mut st) = self.state.lock() {
+            st.paused = paused;
+        }
+    }
+
+    fn is_paused(&self) -> bool {
+        self.pause.load(Ordering::Relaxed)
+    }
+
+    /// Block while paused, waking up briefly to notice cancellation.
+    fn wait_if_paused(&self) {
+        while self.is_paused() && !self.is_cancelled() {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    }
 }
 
 pub struct OpRunner {
@@ -117,8 +138,10 @@ impl OpRunner {
                 finished: false,
                 error: None,
                 cancelled: false,
+                paused: false,
             }),
             cancel: AtomicBool::new(false),
+            pause: AtomicBool::new(false),
             bytes_done: AtomicU64::new(0),
             files_done: AtomicU64::new(0),
         });
@@ -161,6 +184,16 @@ impl OpRunner {
 
     pub fn cancel(&self) {
         self.shared.cancel.store(true, Ordering::Relaxed);
+        // Wake a paused worker so it can see the cancellation
+        self.shared.set_paused(false);
+    }
+
+    pub fn pause(&self) {
+        self.shared.set_paused(true);
+    }
+
+    pub fn resume(&self) {
+        self.shared.set_paused(false);
     }
 
     pub fn join(&mut self) {
@@ -272,6 +305,7 @@ fn report_copied(shared: &SharedState, from: &Path, to: &Path) -> Result<()> {
 }
 
 fn copy_dir_bg(shared: &SharedState, src: &Path, dst: &Path) -> Result<()> {
+    shared.wait_if_paused();
     if shared.is_cancelled() {
         anyhow::bail!("cancelled");
     }
@@ -281,6 +315,7 @@ fn copy_dir_bg(shared: &SharedState, src: &Path, dst: &Path) -> Result<()> {
         let ft = entry.file_type()?;
         let src_path = entry.path();
         let dst_path = dst.join(entry.file_name());
+        shared.wait_if_paused();
         if shared.is_cancelled() {
             anyhow::bail!("cancelled");
         }
@@ -301,6 +336,7 @@ fn run_operation(shared: &SharedState, op: Operation) -> Result<()> {
         Operation::Copy { sources, dest } => {
             fs::create_dir_all(&dest)?;
             for src in sources {
+                shared.wait_if_paused();
                 if shared.is_cancelled() {
                     anyhow::bail!("cancelled");
                 }
@@ -320,6 +356,7 @@ fn run_operation(shared: &SharedState, op: Operation) -> Result<()> {
         Operation::Move { sources, dest } => {
             fs::create_dir_all(&dest)?;
             for src in sources {
+                shared.wait_if_paused();
                 if shared.is_cancelled() {
                     anyhow::bail!("cancelled");
                 }
@@ -395,6 +432,7 @@ fn run_operation(shared: &SharedState, op: Operation) -> Result<()> {
             let file = fs::File::open(&archive)?;
             let mut z = zip::ZipArchive::new(file)?;
             for i in 0..z.len() {
+                shared.wait_if_paused();
                 if shared.is_cancelled() {
                     anyhow::bail!("cancelled");
                 }
@@ -445,6 +483,7 @@ fn compress_dir_bg(
     options: zip::write::FileOptions,
 ) -> Result<()> {
     use std::io::Write;
+    shared.wait_if_paused();
     if shared.is_cancelled() {
         anyhow::bail!("cancelled");
     }
@@ -452,6 +491,7 @@ fn compress_dir_bg(
         let entry = entry?;
         let path = entry.path();
         let name = path.strip_prefix(base_path)?;
+        shared.wait_if_paused();
         if shared.is_cancelled() {
             anyhow::bail!("cancelled");
         }
@@ -477,6 +517,7 @@ fn tar_dir_bg(
     base_path: &Path,
     current_path: &Path,
 ) -> Result<()> {
+    shared.wait_if_paused();
     if shared.is_cancelled() {
         anyhow::bail!("cancelled");
     }
@@ -484,6 +525,7 @@ fn tar_dir_bg(
         let entry = entry?;
         let path = entry.path();
         let name = path.strip_prefix(base_path)?;
+        shared.wait_if_paused();
         if shared.is_cancelled() {
             anyhow::bail!("cancelled");
         }
@@ -527,8 +569,10 @@ mod tests {
                 finished: false,
                 error: None,
                 cancelled: false,
+                paused: false,
             }),
             cancel: AtomicBool::new(false),
+            pause: AtomicBool::new(false),
             bytes_done: AtomicU64::new(0),
             files_done: AtomicU64::new(0),
         };

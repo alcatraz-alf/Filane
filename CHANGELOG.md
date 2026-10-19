@@ -24,6 +24,14 @@
 ## Unreleased
 
 ### New Features
+- ⏸️ **Pause/Resume Operasi** - Progress dialog kini punya tombol Pause/Resume di samping Cancel
+  - Worker thread menunggu beruntun selama paused (cancellation tetap responsif)
+- 🚦 **Operation Queue** - Operasi yang dimulai saat ada op berjalan tidak lagi gagal — masuk antrean otomatis
+  - Status "⏳ Queued (N waiting)", op berikutnya mulai otomatis setelah selesai
+- 🔄 **Auto-Refresh (File Watcher)** - Kedua pane pantau isi folder dengan poller 1.5s; perubahan dari luar aplikasi (membuat/hapus/rename file via shell atau app lain) me-refresh tampilan secara otomatis
+  - Tanpa dependensi baru (polling mtime, tidak pakai inotify)
+  - Staying out of the way: tidak refresh saat background op berjalan
+  - `WatcherShared` + `spawn_dir_watcher()`
 - 📏 **Directory Sizes** - Kolom size folder menampilkan total ukuran konten berjalan di background (sebelumnya `<DIR>`)
   - Hitung per folder secara lazy dengan thread (maks 6 thread berjalan), cache TTL 2 menit, indikator "…" saat menghitung
   - `filesystem::dir_size()` iterative (aman untuk tree dalam) + unit test
