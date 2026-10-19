@@ -6,6 +6,7 @@ impl FileManagerApp {
         // Delete confirmation dialog
         if self.show_delete_confirm {
             let name = self.item_to_delete.clone().unwrap_or_default();
+            let permanent = self.delete_permanently;
             egui::Window::new("⚠  Delete Confirmation")
                 .collapsible(false)
                 .resizable(false)
@@ -38,15 +39,27 @@ impl FileManagerApp {
                         );
                         ui.add_space(15.0);
                         ui.label(
-                            egui::RichText::new("Move this item to Trash?")
-                                .size(16.0)
-                                .strong(),
+                            egui::RichText::new(if permanent {
+                                "Delete permanently?"
+                            } else {
+                                "Move this item to Trash?"
+                            })
+                            .size(16.0)
+                            .strong(),
                         );
                         ui.add_space(4.0);
                         ui.label(
-                            egui::RichText::new("You can restore it later from the Trash")
-                                .size(12.0)
-                                .color(egui::Color32::from_rgb(160, 164, 170)),
+                            egui::RichText::new(if permanent {
+                                "This cannot be undone!"
+                            } else {
+                                "You can restore it later from the Trash"
+                            })
+                            .size(12.0)
+                            .color(if permanent {
+                                egui::Color32::from_rgb(251, 100, 90)
+                            } else {
+                                egui::Color32::from_rgb(160, 164, 170)
+                            }),
                         );
                         ui.add_space(8.0);
                         ui.label(
@@ -59,16 +72,20 @@ impl FileManagerApp {
                             ui.add_space(10.0);
                             if                            ui.add_sized(
                                     [120.0, 36.0],
-                                    egui::Button::new(
-                                        egui::RichText::new("✓  Move to Trash").size(14.0),
-                                    )
+                                    egui::Button::new(egui::RichText::new(if permanent {
+                                        "🗑  Delete Permanently"
+                                    } else {
+                                        "✓  Move to Trash"
+                                    })
+                                    .size(14.0))
                                     .fill(egui::Color32::from_rgb(220, 53, 69))
                                     .rounding(6.0),
                                 )
                                 .clicked()
                             {
-                                let _ = self.delete_selected_file();
+                                let _ = self.delete_selected_items(permanent);
                                 self.show_delete_confirm = false;
+                                self.delete_permanently = false;
                                 self.item_to_delete = None;
                             }
                             ui.add_space(12.0);
@@ -82,6 +99,7 @@ impl FileManagerApp {
                                 .clicked()
                             {
                                 self.show_delete_confirm = false;
+                                self.delete_permanently = false;
                                 self.item_to_delete = None;
                             }
                         });

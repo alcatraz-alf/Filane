@@ -227,6 +227,26 @@ impl FileManagerApp {
                                         .clicked()
                                     {
                                         self.item_to_delete = Some(item.name.clone());
+                                        self.delete_permanently = false;
+                                        self.show_delete_confirm = true;
+                                        close_menu = true;
+                                    }
+
+                                    // Delete Permanently (bypasses trash)
+                                    if ui
+                                        .add_sized(
+                                            [ui.available_width(), 28.0],
+                                            egui::Button::new(
+                                                egui::RichText::new("🗑  Delete Permanently (Shift+Del)")
+                                                    .size(13.0)
+                                                    .color(egui::Color32::from_rgb(220, 80, 70)),
+                                            )
+                                            .frame(false),
+                                        )
+                                        .clicked()
+                                    {
+                                        self.item_to_delete = Some(item.name.clone());
+                                        self.delete_permanently = true;
                                         self.show_delete_confirm = true;
                                         close_menu = true;
                                     }

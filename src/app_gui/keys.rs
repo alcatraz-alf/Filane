@@ -52,6 +52,7 @@ impl FileManagerApp {
                     self.properties_item = None;
                 } else if self.show_delete_confirm {
                     self.show_delete_confirm = false;
+                    self.delete_permanently = false;
                     self.item_to_delete = None;
                 } else if self.show_search_dialog {
                     self.show_search_dialog = false;
@@ -169,6 +170,7 @@ impl FileManagerApp {
                     } else {
                         format!("{} items", count)
                     });
+                    self.delete_permanently = false;
                     self.show_delete_confirm = true;
                 }
             }
@@ -255,8 +257,12 @@ impl FileManagerApp {
             }
             if i.key_pressed(egui::Key::Delete) {
                 if let Some(item) = self.get_active_pane().get_selected_item() {
-                    self.item_to_delete = Some(item.name.clone());
-                    self.show_delete_confirm = true;
+                    if item.name != ".." {
+                        self.item_to_delete = Some(item.name.clone());
+                        // Shift+Delete bypasses the trash
+                        self.delete_permanently = i.modifiers.shift;
+                        self.show_delete_confirm = true;
+                    }
                 }
             }
         });

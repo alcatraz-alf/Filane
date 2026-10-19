@@ -158,6 +158,7 @@ pub struct FileManagerApp {
     pub active_pane: usize,
     pub status_message: String,
     pub show_delete_confirm: bool,
+    pub delete_permanently: bool,
     pub item_to_delete: Option<String>,
     pub show_hidden_files: bool,
     pub(crate) clipboard: Option<(std::path::PathBuf, ClipboardOperation)>,
@@ -282,6 +283,7 @@ impl FileManagerApp {
             active_pane: 0,
             status_message: format!("Ready - Starting directory: {}", start_dir.display()),
             show_delete_confirm: false,
+            delete_permanently: false,
             item_to_delete: None,
             show_hidden_files: false,
             clipboard: None,
@@ -942,33 +944,57 @@ impl FileManagerApp {
         }
     }
 
-    pub fn delete_selected_file(&mut self) -> Result<()> {
+    pub fn delete_selected_items(&mut self, permanent: bool) -> Result<()> {
         let items_to_delete: Vec<_> = self.get_active_pane()
             .get_selected_items()
             .iter()
             .filter(|item| item.name != "..")
-            .map(|item| (item.path.clone(), item.name.clone()))
+            .map(|item| (item.path.clone(), item.is_dir, item.name.clone()))
             .collect();
 
-        // Move to the OS trash instead of permanently deleting, so the
-        // user can recover from accidental deletions.
-        let mut moved_count = 0;
-        for (path, name) in &items_to_delete {
-            match crate::trash::move_to_trash(path) {
-                Ok(_) => moved_count += 1,
-                Err(e) => {
-                    self.status_message =
-                        format!("❌ Failed to move '{}' to trash: {}", name, e);
-                    anyhow::bail!("Move to trash failed: {}", e);
+        if permanent {
+            let mut deleted_count = 0;
+            for (path, is_dir, name) in &items_to_delete {
+                let result = if *is_dir {
+                    fs::remove_dir_all(path)
+                } else {
+                    fs::remove_file(path)
+                };
+                match result {
+                    Ok(_) => deleted_count += 1,
+                    Err(e) => {
+                        self.status_message = format!("❌ Failed to delete '{}': {}", name, e);
+                        anyhow::bail!("Delete failed: {}", e);
+                    }
                 }
             }
-        }
 
-        self.status_message = if moved_count == 1 {
-            "Moved 1 item to Trash".to_string()
+            self.status_message = if deleted_count == 1 {
+                "Deleted 1 item permanently".to_string()
+            } else {
+                format!("Deleted {} items permanently", deleted_count)
+            };
         } else {
-            format!("Moved {} items to Trash", moved_count)
-        };
+            // Move to the OS trash instead of permanently deleting, so the
+            // user can recover from accidental deletions.
+            let mut moved_count = 0;
+            for (path, _is_dir, name) in &items_to_delete {
+                match crate::trash::move_to_trash(path) {
+                    Ok(_) => moved_count += 1,
+                    Err(e) => {
+                        self.status_message =
+                            format!("❌ Failed to move '{}' to trash: {}", name, e);
+                        anyhow::bail!("Move to trash failed: {}", e);
+                    }
+                }
+            }
+
+            self.status_message = if moved_count == 1 {
+                "Moved 1 item to Trash".to_string()
+            } else {
+                format!("Moved {} items to Trash", moved_count)
+            };
+        }
 
         self.get_active_pane_mut().clear_selection();
         self.get_active_pane_mut().refresh()?;

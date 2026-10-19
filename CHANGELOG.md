@@ -24,6 +24,10 @@
 ## Unreleased
 
 ### New Features
+- 🗑️ **Delete Permanently (Shift+Delete)** - Hapus tanpa lewat Trash, dengan dialog konfirmasi merah "This cannot be undone!"
+  - Context menu: "Delete Permanently" di bawah Delete biasa
+  - `delete_selected_items(permanent)` menggantikan `delete_selected_file()`; recursive untuk folder (`remove_dir_all`)
+  - Dialog konfirmasi adaptif: teks & tombol berubah sesuai mode (Move to Trash vs Delete Permanently)
 - 🖥️ **Open Terminal Here** - Context menu, menu Commands, atau Ctrl+T membuka terminal di direktori pane aktif
   - Auto-deteksi terminal emulator: gnome-terminal, konsole, alacritty, kitty, xfce4-terminal, terminator, tilix, x-terminal-emulator
   - Cross-platform (Linux, macOS, Windows)
