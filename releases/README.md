@@ -6,12 +6,12 @@ Windows portable zip) and publishes them on the GitHub Release page.
 
 ## Latest Release
 
-**Version:** 0.3.4  
-**Date:** 2026-10-19
+**Version:** 0.3.6  
+**Date:** 2026-10-20
 
 ### Downloads
 
-- **v0.3.4/Filane-Dual_Pane_File_Manager-0.3.4-x86_64.AppImage** (8.6 MB)
+- **v0.3.6/Filane-Dual_Pane_File_Manager-0.3.6-x86_64.AppImage**
 
 ## Quick Start
 
@@ -19,13 +19,13 @@ Windows portable zip) and publishes them on the GitHub Release page.
 
 ```bash
 # Download
-wget https://github.com/alcatraz-alf/Filane/raw/main/releases/v0.3.4/Filane-Dual_Pane_File_Manager-0.3.4-x86_64.AppImage
+wget https://github.com/alcatraz-alf/Filane/raw/main/releases/v0.3.6/Filane-Dual_Pane_File_Manager-0.3.6-x86_64.AppImage
 
 # Make executable
-chmod +x Filane-Dual_Pane_File_Manager-0.3.4-x86_64.AppImage
+chmod +x Filane-Dual_Pane_File_Manager-0.3.6-x86_64.AppImage
 
 # Run
-./Filane-Dual_Pane_File_Manager-0.3.4-x86_64.AppImage
+./Filane-Dual_Pane_File_Manager-0.3.6-x86_64.AppImage
 ```
 
 ### Install System-Wide
@@ -35,11 +35,11 @@ chmod +x Filane-Dual_Pane_File_Manager-0.3.4-x86_64.AppImage
 sudo mkdir -p /opt/filane
 
 # Copy AppImage
-sudo cp Filane-Dual_Pane_File_Manager-0.3.4-x86_64.AppImage /opt/filane/
-sudo chmod +x /opt/filane/Filane-Dual_Pane_File_Manager-0.3.4-x86_64.AppImage
+sudo cp Filane-Dual_Pane_File_Manager-0.3.6-x86_64.AppImage /opt/filane/
+sudo chmod +x /opt/filane/Filane-Dual_Pane_File_Manager-0.3.6-x86_64.AppImage
 
 # Create symlink
-sudo ln -sf /opt/filane/Filane-Dual_Pane_File_Manager-0.3.4-x86_64.AppImage /usr/local/bin/filane-gui
+sudo ln -sf /opt/filane/Filane-Dual_Pane_File_Manager-0.3.6-x86_64.AppImage /usr/local/bin/filane-gui
 
 # Run from terminal
 filane-gui

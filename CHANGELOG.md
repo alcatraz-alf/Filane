@@ -1,3 +1,34 @@
+## v0.3.6
+
+### Fixed (Windows)
+- 🐛 **Masuk direktori: "Access denied"** - canonicalize() gagal untuk junction/reparse-point
+  (OneDrive, AppData links) walau isinya bisa dibaca; navigasi kini fallback ke path asli dan
+  menghapus prefix verbatim \\?\\ (`pane::normalize_dir()`)
+- 🐛 **Advanced Search bisa crash (stack overflow)** - search mengikuti junction loop yang
+  ter-install di semua Windows (`C:\ProgramData\Application Data`); junction/symlink kini
+  diperlakukan sebagai bukan direktori dan tidak direkursi
+- 🐛 **Delete (F8) selalu gagal** - "Trash not supported yet"; fallback permanent delete dengan
+  toast Warning (Shift+Delete / permanent atas sesuai keinginan tidak berubah)
+- 🐛 **Move lintas drive (C:↔D:) gagal** - fallback copy hanya mengenali EXDEV (18) semantik Unix;
+  Windows memakai ERROR_NOT_SAME_DEVICE (17) - `filesystem::is_cross_device()` menangani keduanya
+
+### Build
+- 🧹 Windows compile fixed (`get_mode_octal` / `write_trash_info` E0425) + 4 warning
+  f32 float-literal future-hard-error dibersihkan
+
+## v0.3.5
+
+### Platform
+- 💾 **macOS DMG (universal) kini sukses** di CI - `git2 default-features = false` melepas
+  OpenSSL/libssh2 yang menggagalkan build macOS & Windows sebelumnya
+- 🤖 **CI matrix 3 OS** - Linux AppImage, macOS universal DMG (lipo, icns, codesign, hdiutil),
+  Windows portable zip; publish otomatis ke GitHub Release pada setiap tag `v*`
+
+### New Features
+- 🎨 **TUI Themes (issue #1)** - tekan `t` untuk cycle 5 tema (Dark, Dracula, Nord, Monokai,
+  Solarized Dark), persist di `~/.config/filane/tui-theme`
+- 🔄 **Check for Updates (GUI)** - cek release terbaru GitHub di background thread, menu Help +
+  opsi cek otomatis mingguan di Theme Selector
 # Changelog
 
 ## v0.3.0

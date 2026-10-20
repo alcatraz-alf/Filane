@@ -1,6 +1,6 @@
 [package]
 name = "dual-pane-fm"
-version = "0.3.4"
+version = "0.3.6"
 edition = "2021"
 
 [[bin]]

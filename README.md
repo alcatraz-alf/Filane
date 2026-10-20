@@ -160,7 +160,7 @@ Filane is a modern dual-pane file manager built with Rust, featuring two efficie
 
 | OS | Download |
 |----|----------|
-| Linux | [Filane-0.3.4-x86_64.AppImage](releases/v0.3.4/Filane-Dual_Pane_File_Manager-0.3.4-x86_64.AppImage) |
+| Linux | [Filane-0.3.6-x86_64.AppImage](releases/v0.3.6/Filane-Dual_Pane_File_Manager-0.3.6-x86_64.AppImage) |
 | macOS (Intel + Apple Silicon) | via [GitHub Releases](https://github.com/alcatraz-alf/Filane/releases/latest) - `*.macOS-universal.dmg` |
 | Windows | via [GitHub Releases](https://github.com/alcatraz-alf/Filane/releases/latest) - `*.Windows-x64.zip` |
 
