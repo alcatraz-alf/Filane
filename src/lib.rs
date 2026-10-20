@@ -6,5 +6,6 @@ pub mod fuzzy;
 pub mod ops;
 pub mod pane;
 pub mod pdf_renderer;
+pub mod tui_theme;
 pub mod trash;
 pub mod ui;

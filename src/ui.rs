@@ -10,6 +10,16 @@ use ratatui::{
 use std::path::Path;
 
 pub fn draw(f: &mut Frame, app: &App) {
+    let p = app.tui_theme.palette();
+    let pal = &p;
+
+    // Paint the whole surface first so the app never shows the
+    // terminal's own (possibly white) background.
+    f.render_widget(
+        Block::default().style(Style::default().bg(pal.panel_bg)),
+        f.size(),
+    );
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -29,9 +39,9 @@ pub fn draw(f: &mut Frame, app: &App) {
         .split(f.size());
 
     let title = Paragraph::new(
-        "Filane - Dual Pane FM - Tab: Switch | Shift+↑↓: Multi-select | v: Move | d: Delete | Space: Preview | m: Mounts | q: Quit",
+        "Filane - Dual Pane FM - Tab: Switch | Shift+↑↓: Multi-select | v: Move | d: Delete | Space: Preview | m: Mounts | t: Theme | q: Quit",
     )
-    .style(Style::default().fg(Color::Cyan));
+    .style(Style::default().fg(pal.title));
     f.render_widget(title, chunks[0]);
 
     if app.show_preview {
@@ -79,8 +89,8 @@ pub fn draw(f: &mut Frame, app: &App) {
     };
 
     let status = Paragraph::new(status_text)
-        .style(Style::default().fg(Color::Yellow))
-        .block(Block::default().borders(Borders::TOP));
+        .style(Style::default().fg(pal.status).bg(pal.panel_bg))
+        .block(Block::default().borders(Borders::TOP).style(Style::default().bg(pal.panel_bg)));
     f.render_widget(status, chunks[chunks.len() - 1]);
 
     if app.show_mounts {
@@ -89,10 +99,11 @@ pub fn draw(f: &mut Frame, app: &App) {
 }
 
 fn draw_preview(f: &mut Frame, app: &App, area: Rect) {
+    let pal = app.tui_theme.palette();
     let block = Block::default()
         .title(" Preview ")
         .borders(Borders::ALL)
-        .style(Style::default().fg(Color::Magenta));
+        .style(Style::default().fg(pal.border_active).bg(pal.panel_bg));
 
     let inner_area = block.inner(area);
     f.render_widget(block, area);
@@ -116,7 +127,7 @@ fn draw_preview(f: &mut Frame, app: &App, area: Rect) {
     };
 
     let paragraph = Paragraph::new(content)
-        .style(Style::default().fg(Color::White))
+        .style(Style::default().fg(pal.text).bg(pal.panel_bg))
         .wrap(ratatui::widgets::Wrap { trim: true });
 
     f.render_widget(paragraph, inner_area);
@@ -237,6 +248,7 @@ fn truncate_text(text: &str, max_chars: usize) -> String {
 }
 
 fn draw_pane(f: &mut Frame, app: &App, area: Rect, pane_index: usize) {
+    let pal = app.tui_theme.palette();
     let pane = if pane_index == 0 {
         &app.left_pane
     } else {
@@ -247,10 +259,11 @@ fn draw_pane(f: &mut Frame, app: &App, area: Rect, pane_index: usize) {
 
     let block_style = if is_active {
         Style::default()
-            .fg(Color::Green)
+            .fg(pal.border_active)
+            .bg(pal.panel_bg)
             .add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(Color::Gray)
+        Style::default().fg(pal.border_dim).bg(pal.panel_bg)
     };
 
     let title = format!(" {} ", pane.current_path.display());
@@ -286,18 +299,18 @@ fn draw_pane(f: &mut Frame, app: &App, area: Rect, pane_index: usize) {
             let style = if is_selected {
                 if is_active {
                     Style::default()
-                        .fg(Color::Black)
-                        .bg(Color::Green)
+                        .fg(pal.sel_fg)
+                        .bg(pal.sel_bg)
                         .add_modifier(Modifier::BOLD)
                 } else {
-                    Style::default().fg(Color::Black).bg(Color::Gray)
+                    Style::default().fg(pal.sel_fg).bg(pal.sel_bg)
                 }
             } else if is_multi_selected {
                 Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Cyan)
+                    .fg(pal.multi_fg)
+                    .bg(pal.multi_bg)
             } else {
-                Style::default()
+                Style::default().fg(pal.text).bg(pal.panel_bg)
             };
 
             ListItem::new(Line::from(Span::styled(content, style)))
@@ -308,7 +321,8 @@ fn draw_pane(f: &mut Frame, app: &App, area: Rect, pane_index: usize) {
     f.render_widget(list, inner_area);
 }
 
-fn draw_mounts_popup(f: &mut Frame, _app: &App) {
+fn draw_mounts_popup(f: &mut Frame, app: &App) {
+    let pal = app.tui_theme.palette();
     let area = f.size();
     let popup_width = area.width.saturating_sub(10).min(80);
     let popup_height = area.height.saturating_sub(6).min(30);
@@ -321,13 +335,18 @@ fn draw_mounts_popup(f: &mut Frame, _app: &App) {
     };
 
     f.render_widget(Clear, popup_area);
+    f.render_widget(
+        Block::default().style(Style::default().bg(pal.panel_bg)),
+        popup_area,
+    );
 
     let block = Block::default()
         .title(" Mount Points (Press 'm' to close) ")
         .borders(Borders::ALL)
         .style(
             Style::default()
-                .fg(Color::Cyan)
+                .fg(pal.border_active)
+                .bg(pal.panel_bg)
                 .add_modifier(Modifier::BOLD),
         );
 
@@ -357,13 +376,13 @@ fn draw_mounts_popup(f: &mut Frame, _app: &App) {
                     Span::styled(
                         mount.mount_point.display().to_string(),
                         Style::default()
-                            .fg(Color::Cyan)
+                            .fg(pal.border_active)
                             .add_modifier(Modifier::BOLD),
                     ),
                 ]),
                 Line::from(vec![
                     Span::raw("  Device: "),
-                    Span::styled(&mount.device_name, Style::default().fg(Color::White)),
+                    Span::styled(&mount.device_name, Style::default().fg(pal.text)),
                     Span::raw(format!(
                         " | Type: {} | {}",
                         mount.file_system, mount.disk_kind
@@ -373,12 +392,12 @@ fn draw_mounts_popup(f: &mut Frame, _app: &App) {
                     Span::raw("  Space: "),
                     Span::styled(
                         format!("{} / {}", format_size(used), format_size(mount.total_space)),
-                        Style::default().fg(Color::White),
+                        Style::default().fg(pal.text),
                     ),
                     Span::raw(" | Available: "),
                     Span::styled(
                         format_size(mount.available_space),
-                        Style::default().fg(Color::Green),
+                        Style::default().fg(pal.multi_fg),
                     ),
                 ]),
                 Line::from(vec![

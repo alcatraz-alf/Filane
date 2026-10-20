@@ -1,4 +1,5 @@
 use crate::pane::Pane;
+use crate::tui_theme::{self, TuiTheme};
 use anyhow::Result;
 use std::env;
 use std::fs;
@@ -10,6 +11,7 @@ pub struct App {
     pub should_quit: bool,
     pub show_mounts: bool,
     pub show_preview: bool,
+    pub tui_theme: TuiTheme,
 }
 
 impl App {
@@ -29,6 +31,7 @@ impl App {
             should_quit: false,
             show_mounts: false,
             show_preview: false,
+            tui_theme: tui_theme::load_tui_theme(),
         })
     }
 
@@ -160,6 +163,11 @@ impl App {
 
     pub fn toggle_preview(&mut self) {
         self.show_preview = !self.show_preview;
+    }
+
+    pub fn cycle_theme(&mut self) {
+        self.tui_theme = self.tui_theme.next();
+        tui_theme::save_tui_theme(self.tui_theme);
     }
 
     pub fn quit(&mut self) {

@@ -56,6 +56,7 @@ fn run_app<B: ratatui::backend::Backend>(terminal: &mut Terminal<B>, app: &mut A
                     match key.code {
                         KeyCode::Char('q') => app.quit(),
                         KeyCode::Char('m') => app.toggle_mounts(),
+                        KeyCode::Char('t') => app.cycle_theme(),
                         KeyCode::Up | KeyCode::Char('k') => {
                             if shift_pressed {
                                 app.move_up_with_selection();
