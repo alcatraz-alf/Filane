@@ -96,7 +96,6 @@ fn decode_trash_info_value(text: &str) -> String {
     String::from_utf8_lossy(&bytes).into_owned()
 }
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn write_trash_info(info_dir: &Path, unique_name: &str, original: &Path) -> Result<()> {
     let info_path = info_dir.join(format!("{}.trashinfo", unique_name));
     let contents = format!(

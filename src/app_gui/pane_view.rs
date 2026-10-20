@@ -212,7 +212,7 @@ impl FileManagerApp {
             egui::Frame::default()
                 .fill(visuals.panel_fill)
                 .stroke(egui::Stroke::new(
-                    2.0,
+                    2.0_f32,
                     visuals.widgets.active.bg_fill,
                 ))
                 .rounding(8.0)
@@ -226,7 +226,7 @@ impl FileManagerApp {
         } else {
             egui::Frame::default()
                 .fill(visuals.panel_fill)
-                .stroke(egui::Stroke::new(1.0, visuals.widgets.noninteractive.bg_fill))
+                .stroke(egui::Stroke::new(1.0_f32, visuals.widgets.noninteractive.bg_fill))
                 .rounding(8.0)
                 .inner_margin(0.0)
         };

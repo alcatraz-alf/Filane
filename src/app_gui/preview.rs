@@ -118,7 +118,7 @@ impl FileManagerApp {
         
         egui::Frame::default()
             .fill(panel_fill)
-            .stroke(egui::Stroke::new(1.0, stroke_color))
+            .stroke(egui::Stroke::new(1.0_f32, stroke_color))
             .rounding(8.0)
             .inner_margin(12.0)
             .show(ui, |ui| {

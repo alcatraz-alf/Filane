@@ -169,6 +169,11 @@ pub fn format_date(time: SystemTime) -> String {
 }
 
 /// Apply a chmod-style octal mode (e.g. "644", "755") to a path. Unix only.
+#[cfg(not(unix))]
+pub fn get_mode_octal(_path: &Path) -> Option<u32> {
+    None
+}
+
 #[cfg(unix)]
 pub fn get_mode_octal(path: &Path) -> Option<u32> {
     use std::os::unix::fs::PermissionsExt;

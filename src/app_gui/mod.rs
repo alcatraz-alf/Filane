@@ -595,7 +595,7 @@ impl FileManagerApp {
                             spread: 0.0,
                             color: egui::Color32::from_black_alpha(100),
                         })
-                        .stroke(egui::Stroke::new(2.0, accent.gamma_multiply(alpha)))
+                        .stroke(egui::Stroke::new(2.0_f32, accent.gamma_multiply(alpha)))
                         .inner_margin(egui::Margin::symmetric(14.0, 8.0))
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
