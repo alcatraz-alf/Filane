@@ -9,8 +9,8 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build and publish AppImage
+  linux:
+    name: Linux AppImage
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
@@ -37,22 +37,148 @@ jobs:
           wget -q https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
           ./appimagetool-x86_64.AppImage --appimage-extract-and-run AppDir \
-            "Filane-Dual_Pane_File_Manager-${VERSION}-x86_64.AppImage"
+            "Filane-${VERSION}-x86_64.AppImage"
 
-      - name: Publish GitHub Release
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: Filane-*.AppImage
+
+  macos:
+    name: macOS DMG (universal)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build both architectures
+        run: |
+          cargo build --release --bin dual-pane-fm-gui --target x86_64-apple-darwin
+          cargo build --release --bin dual-pane-fm-gui --target aarch64-apple-darwin
+
+      - name: Create universal binary and .app bundle
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          lipo -create \
+            target/x86_64-apple-darwin/release/dual-pane-fm-gui \
+            target/aarch64-apple-darwin/release/dual-pane-fm-gui \
+            -output dual-pane-fm-gui
+          mkdir -p Filane.app/Contents/MacOS Filane.app/Contents/Resources
+          cp dual-pane-fm-gui Filane.app/Contents/MacOS/Filane
+          cp AppDir/dual-pane-fm.png Filane.app/Contents/Resources/icon.png
+          sips -s format icns Filane.app/Contents/Resources/icon.png \
+            --out Filane.app/Contents/Resources/AppIcon.icns
+          cat > Filane.app/Contents/Info.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>Filane</string>
+            <key>CFBundleDisplayName</key><string>Filane</string>
+            <key>CFBundleIdentifier</key><string>com.filane.gui</string>
+            <key>CFBundleVersion</key><string>VERSION_PLACEHOLDER</string>
+            <key>CFBundleShortVersionString</key><string>VERSION_PLACEHOLDER</string>
+            <key>CFBundleExecutable</key><string>Filane</string>
+            <key>CFBundleIconFile</key><string>AppIcon</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          sed -i '' "s/VERSION_PLACEHOLDER/${VERSION}/" Filane.app/Contents/Info.plist
+          codesign --force --deep --sign - Filane.app || true
+
+      - name: Create DMG
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dmg
+          cp -R Filane.app dmg/
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname "Filane ${VERSION}" \
+            -srcfolder dmg -ov -format UDZO \
+            "Filane-${VERSION}-macOS-universal.dmg"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg
+          path: Filane-*-macOS-universal.dmg
+
+  windows:
+    name: Windows EXE
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release --bin dual-pane-fm-gui
+
+      - name: Package portable zip
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          mkdir "dist"
+          Copy-Item "target\release\dual-pane-fm-gui.exe" "dist\Filane.exe"
+          Copy-Item "README.md" "dist\"
+          Compress-Archive -Path "dist\*" -DestinationPath "Filane-$version-Windows-x64.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: Filane-*-Windows-x64.zip
+
+  publish:
+    name: Publish GitHub Release
+    needs: [linux, macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifact dirs
+        run: |
+          mkdir files
+          find artifacts -type f \( -name "*.AppImage" -o -name "*.dmg" -o -name "*.zip" \) \
+            -exec mv {} files/ \;
+          ls -la files
+
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           name: Filane ${{ github.ref_name }}
           body: |
             Filane - Dual Pane File Manager ${{ github.ref_name }}
 
-            ## New Features
+            ## Downloads
+            | OS | File |
+            |---|---|
+            | Linux | `Filane-.*-x86_64.AppImage` |
+            | macOS (Intel + Apple Silicon) | `Filane-.*-macOS-universal.dmg` |
+            | Windows | `Filane-.*-Windows-x64.zip` |
+
             See [CHANGELOG.md](https://github.com/alcatraz-alf/Filane/blob/main/CHANGELOG.md) for details.
 
             ## Install
-            ```bash
-            chmod +x Filane-Dual_Pane_File_Manager-*-x86_64.AppImage
-            ./Filane-Dual_Pane_File_Manager-*-x86_64.AppImage
-            ```
-          files: |
-            Filane-Dual_Pane_File_Manager-*-x86_64.AppImage
+            - **Linux**: `chmod +x *.AppImage && ./*.AppImage`
+            - **macOS**: open the DMG and drag Filane into Applications
+            - **Windows**: extract the zip and run `Filane.exe`
+          files: files/*
