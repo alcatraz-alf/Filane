@@ -46,16 +46,19 @@
 - 🎯 **Go to Containing Folder** - Klik hasil search kini membuka folder induk DAN menempatkan kursor pada item tersebut
   - `Pane::navigate_to_containing()` navigasi + highlight sekaligus (dengan unit test)
 
-## Unreleased
+## v0.3.2
 
 ### New Features
 - 🔠 **UI Scale / Font Size Setting** - Pengaturan ukuran font antarmuka tersendiri
   - Slider 70%-200% (+/− presets) di Theme Selector, persist di AppPrefs
-  - Shortcut Ctrl+= / Ctrl-= dengan feedback status
-- 🔃 **Mount Points Viewer** (dari sesi sebelumnya, belum di-tag)
-  - Menyertakan sistem trash lengkap, persistensi layout eframe/egui
+  - Shortcut Ctrl+= / Ctrl-= dengan feedback status, tercatat di F1 cheat sheet
+- 📌 **Paste di Context Menu** - Muncul otomatis saat clipboard berisi item
 
-___________
+### UX Polish
+- 🖱 **Context Menu Dirapikan** - Grup logis (Open/Terminal → Clipboard → Archive → Delete → Properties),
+  hint shortcut rata kanan abu-abu, hover merata, baris Cancel dihapus (tutup via klik luar/ESC)
+- 🔕 **Toast hanya untuk error/warning** - Pesan status rutin (ganti tema, toggle, navigasi) cukup di status bar
+
 ## v0.1.0 - Initial Release
 
 ### Features
