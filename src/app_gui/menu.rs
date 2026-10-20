@@ -170,6 +170,35 @@ impl FileManagerApp {
 
                     // ---- Help ---------------------------------------------------
                     ui.menu_button("❓ Help", |ui| {
+                        if ui.button("🔍 Check for Updates...").clicked() {
+                            if let super::update::UpdateStatus::Done { outcome } =
+                                &self.update_status
+                            {
+                                match outcome {
+                                    Ok(Some(info)) => {
+                                        let dl = info
+                                            .appimage_url
+                                            .as_deref()
+                                            .unwrap_or(info.release_url.as_str());
+                                        self.status_message =
+                                            format!("Update {} available — {}", info.tag, dl);
+                                    }
+                                    Ok(None) => {
+                                        self.status_message = format!(
+                                            "Up to date (v{})",
+                                            env!("CARGO_PKG_VERSION")
+                                        );
+                                    }
+                                    Err(e) => {
+                                        self.status_message =
+                                            format!("Update check failed: {}", e);
+                                    }
+                                }
+                            }
+                            self.start_update_check(false);
+                            ui.close_menu();
+                        }
+                        ui.separator();
                         if ui.button(format!("⌨ Keyboard Shortcuts {}", Self::hint("F1"))).clicked() {
                             self.show_help_dialog = true;
                             ui.close_menu();

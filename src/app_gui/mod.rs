@@ -22,6 +22,7 @@ mod preview;
 mod sidebar;
 mod sidebar_panel;
 mod theme;
+mod update;
 
 pub(crate) use theme::Palette;
 
@@ -49,6 +50,10 @@ struct AppPrefs {
     left_sort_order: SortOrder,
     right_sort_by: SortBy,
     right_sort_order: SortOrder,
+    #[serde(default)]
+    check_updates_on_startup: bool,
+    #[serde(default)]
+    last_update_check: Option<u64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -262,6 +267,11 @@ pub struct FileManagerApp {
     pub(crate) egui_ctx: egui::Context,
     /// Tracks status_message changes so each new message becomes a toast.
     last_status_message: String,
+    update_status: update::UpdateStatus,
+    update_result: Arc<Mutex<Option<Result<Option<update::UpdateInfo>, String>>>>,
+    update_check_quiet: bool,
+    pub(crate) check_updates_on_startup: bool,
+    pub(crate) last_update_check: Option<u64>,
     // Paste conflict dialog state (destination file already exists)
     pub show_paste_conflict: bool,
     pub paste_conflict_source: Option<PathBuf>,
@@ -398,6 +408,11 @@ impl FileManagerApp {
             watch_state: Arc::new(WatcherShared::new()),
             egui_ctx: cc.egui_ctx.clone(),
             last_status_message: String::new(),
+            update_status: update::UpdateStatus::Idle,
+            update_result: Arc::new(Mutex::new(None)),
+            update_check_quiet: false,
+            check_updates_on_startup: false,
+            last_update_check: None,
         };
 
         // Overlay persisted prefs on top of defaults
@@ -427,7 +442,25 @@ impl FileManagerApp {
 
         app.spawn_dir_watcher();
 
+        // Weekly auto update check, only when the user opted in.
+        if app.check_updates_on_startup {
+            let now = Self::shell_now();
+            if app
+                .last_update_check
+                .map_or(true, |t| now.saturating_sub(t) > 7 * 24 * 3600)
+            {
+                app.start_update_check(true);
+            }
+        }
+
         app
+    }
+
+    fn shell_now() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
     }
 
     /// Start the background poller that watches both panes' directories and
@@ -1467,6 +1500,8 @@ impl eframe::App for FileManagerApp {
             }
         }
 
+        self.poll_update_check();
+
         // Apply modern visual style + user font-size / UI scale
         ctx.set_visuals(self.get_modern_visuals());
         self.apply_zoom(ctx);
@@ -1520,6 +1555,8 @@ impl eframe::App for FileManagerApp {
             left_sort_order: self.left_pane.sort_order,
             right_sort_by: self.right_pane.sort_by,
             right_sort_order: self.right_pane.sort_order,
+            check_updates_on_startup: self.check_updates_on_startup,
+            last_update_check: self.last_update_check,
         };
         eframe::set_value(storage, "app_prefs", &prefs);
     }

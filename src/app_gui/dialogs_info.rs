@@ -258,6 +258,14 @@ impl FileManagerApp {
                                     .color(self.palette().warning),
                             );
                         });
+                        ui.add_space(8.0);
+                        let mut check_startup = self.check_updates_on_startup;
+                        if ui
+                            .checkbox(&mut check_startup, "🔍 Check for updates on startup (weekly)")
+                            .clicked()
+                        {
+                            self.check_updates_on_startup = check_startup;
+                        }
 
                         ui.add_space(10.0);
                         ui.separator();

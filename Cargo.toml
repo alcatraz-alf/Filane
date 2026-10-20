@@ -31,3 +31,4 @@ lopdf = "0.34"
 open = "5.0"
 tar = "0.4"
 flate2 = "1.0"
+ureq = { version = "2.10", default-features = false, features = ["tls", "json"] }
