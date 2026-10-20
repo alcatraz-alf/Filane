@@ -89,7 +89,7 @@ Filane is a modern dual-pane file manager built with Rust, featuring two efficie
   - ➡✂ Move Left → Right (orange)
   - ⬅✂ Move Right → Left (orange)
 - 🗃️ **Archive Support** - Compress and extract file archives
-  - **Compress:** Create ZIP archives from files/folders (context menu → "Compress to ZIP")
+  - **Compress:** Create ZIP or TAR.GZ archives from files/folders (context menu)
   - **Extract:** Extract ZIP, TAR, TAR.GZ and TGZ archives (context menu → "Extract Archive")
   - Cross-platform support (Windows, Linux, macOS)
   - Progress feedback in status bar
@@ -143,15 +143,28 @@ Filane is a modern dual-pane file manager built with Rust, featuring two efficie
   - **Permanent Delete:** Delete files permanently from trash (F8 or Delete)
   - **Cross-Platform:** Linux (.local/share/Trash/files or .Trash), macOS (.Trash)
   - **Easy Access:** One-click navigate to trash from sidebar
+- ⏸️ **Pause/Resume & Operation Queue** - Long operations can be paused; new operations queue automatically
+- 🔄 **Auto-Refresh (File Watcher)** - External changes refresh the panes (1.5s poll)
+- 📏 **Directory Sizes** - Size column shows real directory contents measured in the background
+- ⚙️ **Permissions Editor** - Edit chmod octal directly from the Properties dialog (Unix)
+- 🔗 **Symlink Support** - Create symlinks in the other pane; show link targets
+- ↩️ **Undo Delete** - Delete-to-trash shows an Undo toast (8s) for instant restore
+- 🗑️ **Delete Permanently** (Shift+Delete) - Bypass the trash with a red confirm dialog
+- 🔠 **UI Scale / Font Size** - 70%-200% slider (Theme Selector) + Ctrl+= / Ctrl+-, persisted
+- 🔄 **Check for Updates** - Background check against GitHub Releases (Help menu, optional weekly)
 - 🎯 **Visual Feedback** - Hover effects, shadows, rounded corners, disabled states
 
 ### Installation & Running
 
-#### Download AppImage (Linux)
+#### Download (prebuilt binaries)
 
-**📥 [Download Filane-Dual_Pane_File_Manager-0.3.1-x86_64.AppImage](releases/v0.3.1/Filane-Dual_Pane_File_Manager-0.3.1-x86_64.AppImage)** 
+| OS | Download |
+|----|----------|
+| Linux | [Filane-0.3.4-x86_64.AppImage](releases/v0.3.4/Filane-Dual_Pane_File_Manager-0.3.4-x86_64.AppImage) |
+| macOS (Intel + Apple Silicon) | via [GitHub Releases](https://github.com/alcatraz-alf/Filane/releases/latest) - `*.macOS-universal.dmg` |
+| Windows | via [GitHub Releases](https://github.com/alcatraz-alf/Filane/releases/latest) - `*.Windows-x64.zip` |
 
-For installation instructions, see [releases/README.md](releases/README.md)
+CI builds all three platforms automatically on every `v*` tag. Local install instructions: [releases/README.md](releases/README.md)
 
 ---
 
@@ -160,7 +173,7 @@ For installation instructions, see [releases/README.md](releases/README.md)
 **Automatic Installation:**
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/dual-pane-fm.git
+git clone https://github.com/alcatraz-alf/Filane.git
 cd dual-pane-fm
 
 # Run installation script (builds and installs to system)
@@ -186,8 +199,8 @@ After installation:
 ##### GUI Version (Graphical Window)
 
 ```bash
-# Enter project directory
-cd dual-pane-fm
+
+
 
 # Build GUI version
 cargo build --release --bin dual-pane-fm-gui
@@ -226,6 +239,7 @@ cargo run --release --bin dual-pane-fm-tui
 | `d` / `Delete` | Delete selected file/directory |
 | `r` | Refresh pane |
 | `m` | Toggle mount points dialog |
+| `t` | Cycle TUI theme (Dark / Dracula / Nord / Monokai / Solarized) |
 | `q` | Quit |
 
 #### GUI Version (Window) - Total Commander Style
@@ -233,13 +247,20 @@ cargo run --release --bin dual-pane-fm-tui
 **Function Keys (Total Commander style):**
 | Key | Function |
 |-----|----------|
-| `F2` | Rename file/folder |
+| `F2` | Refresh both panes |
+| `Shift+F2` | Rename file/folder |
 | `F3` | Open file with default app |
 | `F5` | Copy file to clipboard |
 | `F6` | Cut/Move file to clipboard |
 | `F7` | Paste file from clipboard |
 | `F8` | Delete file/directory |
 | `Ctrl+N` | Create new folder |
+| `Ctrl+Shift+N` | Create new file |
+| `Ctrl+T` | Open terminal in active pane directory |
+| `Shift+Delete` | Delete permanently (bypasses trash) |
+| `Backspace` | Go up one directory level |
+| `F1` | Keyboard shortcuts cheat sheet |
+| `Ctrl+=` / `Ctrl+-` | Increase / decrease UI scale (font size) |
 | `Ctrl+H` | Toggle show/hide hidden files |
 | `Ctrl+B` | Toggle sidebar visibility |
 | `Ctrl+F` | Toggle quick filter mode |
@@ -271,10 +292,11 @@ cargo run --release --bin dual-pane-fm-tui
 | Hover on Button | Show tooltip |
 
 **Menu Bar:**
-- Files → Refresh, Toggle Hidden Files, Toggle Sidebar, Toggle Preview Panel, Themes, Exit
-- Bookmarks → Add Current Folder, [List of saved bookmarks]
-- Commands → Mount Points, New Folder (Ctrl+N), Rename (F2), Open (F3), Advanced Search (Ctrl+Shift+F), Compare Files (Ctrl+D), Copy (F5), Cut (F6), Paste (F7), Delete (F8)
-- Help → About, Keyboard shortcuts
+- **File** → New Folder, New File, Open, Open Terminal Here, Copy, Cut, Paste, Rename, Delete, Exit
+- **View** → Show Hidden Files, Preview Panel, Sidebar (checkboxes), Themes..., Refresh
+- **Bookmarks** → Add Current Folder, saved bookmarks list
+- **Tools** → Advanced Search, Compare Files, Mount Points
+- **Help** → Check for Updates, Keyboard Shortcuts (F1), About, Donate
 
 **Function Button Bar (Bottom):**
 - 💾 F2 Refresh | 📋 F5 Copy | ✂ F6 Cut | 📎 F7 Paste | 🗑 F8 Delete | ✗ Exit
@@ -307,6 +329,7 @@ dual-pane-fm/
 │   ├── ops.rs          # Background file operations (progress & cancel)
 │   ├── pane.rs         # Panel logic & navigation
 │   ├── filesystem.rs   # File system operations (zip, tar, tar.gz)
+│   ├── tui_theme.rs    # TUI theme palettes ('t' to cycle)
 │   ├── ui.rs           # TUI rendering
 │   └── lib.rs          # Library exports
 └── Cargo.toml
@@ -325,7 +348,10 @@ dual-pane-fm/
 - `image` - Image loading and processing
 - `zip` - ZIP archive compression and extraction
 - `tar` & `flate2` - TAR and TAR.GZ archive support
-- `serde` & `serde_json` - Serialization for bookmarks storage
+- `serde` & `serde_json` - Serialization for bookmarks / preferences
+- `git2` - Git status indicators (local repos only)
+- `sysinfo` - System / mount points information
+- `ureq` - HTTP client for the update check (TLS via rustls)
 
 **Shared:**
 - `anyhow` - Error handling

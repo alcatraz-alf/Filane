@@ -1,6 +1,8 @@
 # Filane - Dual Pane FM Releases
 
-This folder contains pre-built AppImage releases of Filane for Linux.
+This folder contains pre-built release artifacts. CI builds all three
+platforms on every `v*` tag (Linux AppImage, macOS universal DMG,
+Windows portable zip) and publishes them on the GitHub Release page.
 
 ## Latest Release
 
@@ -17,7 +19,7 @@ This folder contains pre-built AppImage releases of Filane for Linux.
 
 ```bash
 # Download
-wget https://github.com/yourusername/dual-pane-fm/raw/main/releases/v0.3.4/Filane-Dual_Pane_File_Manager-0.3.4-x86_64.AppImage
+wget https://github.com/alcatraz-alf/Filane/raw/main/releases/v0.3.4/Filane-Dual_Pane_File_Manager-0.3.4-x86_64.AppImage
 
 # Make executable
 chmod +x Filane-Dual_Pane_File_Manager-0.3.4-x86_64.AppImage
