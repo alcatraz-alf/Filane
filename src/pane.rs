@@ -2,6 +2,34 @@ use crate::filesystem::{FileItem, read_directory};
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
+/// Resolve a path to its real location for navigation. Falls back to the
+/// original path when the OS cannot canonicalize it (e.g. junction points,
+/// cloud placeholders or permission quirks report "Access is denied" even
+/// though the directory is readable). On Windows the canonical form is a
+/// verbatim `\\?\` path that other APIs dislike, so it is stripped back.
+pub fn normalize_dir(path: &Path) -> PathBuf {
+    match path.canonicalize() {
+        Ok(canonical) => {
+            #[cfg(windows)]
+            {
+                let s = canonical.to_string_lossy();
+                if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+                    PathBuf::from(format!(r"\\{}", rest))
+                } else if let Some(rest) = s.strip_prefix(r"\\?\") {
+                    PathBuf::from(rest)
+                } else {
+                    canonical
+                }
+            }
+            #[cfg(not(windows))]
+            {
+                canonical
+            }
+        }
+        Err(_) => path.to_path_buf(),
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum SortBy {
     Name,
@@ -191,7 +219,7 @@ impl Pane {
                     item.path.clone()
                 };
 
-                self.navigate_to(new_path.canonicalize()?)?;
+                self.navigate_to(crate::pane::normalize_dir(&new_path))?;
             }
         }
         Ok(())
