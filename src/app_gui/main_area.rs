@@ -8,7 +8,7 @@ impl FileManagerApp {
             .frame(
                 egui::Frame::default()
                     .fill(visuals.panel_fill)
-                    .inner_margin(2.0),
+                    .inner_margin(egui::Margin::symmetric(6.0, 2.0)),
             )
             .show(ctx, |ui| {
                 let _full_rect = ui.available_rect_before_wrap();

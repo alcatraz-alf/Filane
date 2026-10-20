@@ -418,7 +418,9 @@ impl FileManagerApp {
                 use egui_extras::{TableBuilder, Column};
 
                 let text_height = 28.0; // Smaller row height for compact view
-                let table_width = ui.available_width();
+                // Reserve room for the table's vertical scrollbar so the
+                // right-aligned Size suffix (KB/MB) is never covered.
+                let table_width = (ui.available_width() - 12.0).max(320.0);
                 
                 // Capture shift state before entering closures
                 let shift_pressed = ctx.input(|i| i.modifiers.shift);
@@ -590,6 +592,7 @@ impl FileManagerApp {
                             // Size Column
                             row.col(|ui| {
                                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                    ui.add_space(10.0);
                                     let size_str = if item.is_dir {
                                         self.dir_size_for(ctx, &item.path)
                                             .map(crate::filesystem::format_size)
