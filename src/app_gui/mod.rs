@@ -1453,20 +1453,16 @@ impl eframe::App for FileManagerApp {
             }
         }
 
-        // Every status_message change surfaces as a transient toast so it
-        // can't be lost at the end of a long status bar.
+        // Only errors and warnings surface as toasts; routine status
+        // messages (menu actions, navigation) stay in the status bar only
+        // so the UI doesn't get flooded with transient popups.
         if !self.status_message.is_empty() && self.status_message != self.last_status_message {
-            let kind = if self.status_message.starts_with("❌") {
-                ToastKind::Error
-            } else if self.status_message.starts_with("⚠") {
-                ToastKind::Warning
-            } else if self.status_message.starts_with("✅") {
-                ToastKind::Success
-            } else {
-                ToastKind::Info
-            };
             self.last_status_message = self.status_message.clone();
-            self.push_toast(self.status_message.clone(), kind);
+            if self.status_message.starts_with("❌") {
+                self.push_toast(self.status_message.clone(), ToastKind::Error);
+            } else if self.status_message.starts_with("⚠") {
+                self.push_toast(self.status_message.clone(), ToastKind::Warning);
+            }
         }
 
         // Apply modern visual style + user font-size / UI scale
