@@ -52,6 +52,7 @@ impl FileManagerApp {
                                 ("Ctrl+F", "Quick filter (fuzzy match)"),
                                 ("F3", "Open file with default app"),
                                 ("Space", "Toggle preview panel"),
+                                ("Ctrl+= / Ctrl+-", "Bigger / smaller UI font"),
                                 ("F1", "Show this help"),
                                 ("ESC", "Close dialog / clear selection"),
                             ],
@@ -199,7 +200,6 @@ impl FileManagerApp {
                         ui.add_space(5.0);
                         ui.label(egui::RichText::new("Choose a theme:").size(14.0).strong());
                         ui.add_space(10.0);
-
                         for theme in Theme::all() {
                             let is_current = self.current_theme == theme;
                             let button_text = if is_current {
@@ -226,6 +226,38 @@ impl FileManagerApp {
 
                             ui.add_space(6.0);
                         }
+
+                        ui.add_space(10.0);
+                        ui.separator();
+                        ui.add_space(10.0);
+
+                        // UI scale (font size) setting
+                        ui.label(egui::RichText::new("UI Scale / Font Size:").size(14.0).strong());
+                        ui.add_space(6.0);
+                        let zoom_pct = format!("{:.0}%", self.zoom_level * 100.0);
+                        ui.horizontal(|ui| {
+                            if ui
+                                .add_sized([28.0, 24.0], egui::Button::new("−"))
+                                .clicked()
+                            {
+                                self.set_zoom_level(self.zoom_level - 0.1);
+                            }
+                            ui.add_sized([90.0, 24.0], egui::Slider::new(
+                                &mut self.zoom_level,
+                                0.7..=2.0,
+                            ));
+                            if ui
+                                .add_sized([28.0, 24.0], egui::Button::new("+"))
+                                .clicked()
+                            {
+                                self.set_zoom_level(self.zoom_level + 0.1);
+                            }
+                            ui.label(
+                                egui::RichText::new(&zoom_pct)
+                                    .size(12.0)
+                                    .color(egui::Color32::from_rgb(251, 188, 5)),
+                            );
+                        });
 
                         ui.add_space(10.0);
                         ui.separator();

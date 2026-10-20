@@ -243,6 +243,18 @@ impl FileManagerApp {
                 self.show_help_dialog = true;
             }
 
+            // Ctrl+= / Ctrl+- - UI scale (font size)
+            if i.modifiers.ctrl && i.key_pressed(egui::Key::Equals) {
+                self.set_zoom_level(self.zoom_level + 0.1);
+                self.status_message =
+                    format!("UI scale: {:.0}%", self.zoom_level * 100.0);
+            }
+            if i.modifiers.ctrl && i.key_pressed(egui::Key::Minus) {
+                self.set_zoom_level(self.zoom_level - 0.1);
+                self.status_message =
+                    format!("UI scale: {:.0}%", self.zoom_level * 100.0);
+            }
+
             // Ctrl+N - New folder
             if i.modifiers.ctrl && i.key_pressed(egui::Key::N) {
                 self.show_new_folder_dialog = true;

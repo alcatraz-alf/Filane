@@ -27,6 +27,9 @@ mod theme;
 #[derive(serde::Serialize, serde::Deserialize)]
 struct AppPrefs {
     current_theme: Theme,
+    /// UI scale / font size multiplier (1.0 = default).
+    #[serde(default)]
+    zoom: f32,
     show_hidden_files: bool,
     show_sidebar: bool,
     show_preview_panel: bool,
@@ -209,6 +212,8 @@ pub struct FileManagerApp {
     /// Octal chmod input shared with the properties dialog editor.
     pub chmod_input: String,
     pub current_theme: Theme,
+    /// UI scale factor (font & widget size multiplier).
+    pub zoom_level: f32,
     pub show_theme_selector: bool,
     pub image_viewer: Option<ImageViewerState>,
     pub show_preview_panel: bool,
@@ -346,6 +351,7 @@ impl FileManagerApp {
             properties_item: None,
             chmod_input: String::new(),
             current_theme: Theme::Dark,
+            zoom_level: 1.0,
             show_theme_selector: false,
             image_viewer: None,
             show_preview_panel: true,
@@ -395,6 +401,9 @@ impl FileManagerApp {
         // Overlay persisted prefs on top of defaults
         if let Some(prefs) = prefs {
             app.current_theme = prefs.current_theme;
+            if prefs.zoom >= 0.5 && prefs.zoom <= 2.5 {
+                app.zoom_level = prefs.zoom;
+            }
             app.show_hidden_files = prefs.show_hidden_files;
             app.show_sidebar = prefs.show_sidebar;
             app.show_preview_panel = prefs.show_preview_panel;
@@ -460,6 +469,17 @@ impl FileManagerApp {
                 }
             }
         });
+    }
+
+    /// Apply the user's zoom level (UI/font scale) to egui.
+    pub(crate) fn apply_zoom(&self, ctx: &egui::Context) {
+        ctx.set_zoom_factor(self.zoom_level);
+    }
+
+    /// Set the UI zoom level (clamped) — used by the settings slider and
+    /// the Ctrl+= / Ctrl+- shortcuts.
+    pub fn set_zoom_level(&mut self, zoom: f32) {
+        self.zoom_level = zoom.clamp(0.7, 2.0);
     }
 
     /// Push a toast notification (newest on top).
@@ -1449,8 +1469,9 @@ impl eframe::App for FileManagerApp {
             self.push_toast(self.status_message.clone(), kind);
         }
 
-        // Apply modern visual style (zoom is user-controlled/persisted by egui)
+        // Apply modern visual style + user font-size / UI scale
         ctx.set_visuals(self.get_modern_visuals());
+        self.apply_zoom(ctx);
         self.render_menu_bar(ctx);
         self.render_filter_bar(ctx);
         self.render_function_bar_panel(ctx);
@@ -1483,6 +1504,7 @@ impl eframe::App for FileManagerApp {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         let prefs = AppPrefs {
             current_theme: self.current_theme,
+            zoom: self.zoom_level,
             show_hidden_files: self.show_hidden_files,
             show_sidebar: self.show_sidebar,
             show_preview_panel: self.show_preview_panel,

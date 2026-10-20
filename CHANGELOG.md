@@ -47,35 +47,15 @@
   - `Pane::navigate_to_containing()` navigasi + highlight sekaligus (dengan unit test)
 
 ## Unreleased
-- 🗑️ **Delete Permanently (Shift+Delete)** - Hapus tanpa lewat Trash, dengan dialog konfirmasi merah "This cannot be undone!"
-  - Context menu: "Delete Permanently" di bawah Delete biasa
-  - `delete_selected_items(permanent)` menggantikan `delete_selected_file()`; recursive untuk folder (`remove_dir_all`)
-  - Dialog konfirmasi adaptif: teks & tombol berubah sesuai mode (Move to Trash vs Delete Permanently)
-- 🖥️ **Open Terminal Here** - Context menu, menu Commands, atau Ctrl+T membuka terminal di direktori pane aktif
-  - Auto-deteksi terminal emulator: gnome-terminal, konsole, alacritty, kitty, xfce4-terminal, terminator, tilix, x-terminal-emulator
-  - Cross-platform (Linux, macOS, Windows)
-- 📄 **New File** - Buat file kosong dari menu Commands (Ctrl+Shift+N) atau dialog baru
-  - Hint ekstensi + validasi file sudah ada
 
 ### New Features
-- 🗜️ **Compress to TAR.GZ** - Context menu kini punya dua opsi compress: ZIP dan TAR.GZ
-  - Compress TAR.GZ berjalan di background dengan progress per file dan tombol Cancel
-  - Implementasi streaming `tar::Builder` + `flate2::GzEncoder` di `ops.rs` (`tar_dir_bg`)
-  - Unit test roundtrip: compress lalu baca kembali isi arsip
-- ✅ **Mount Points Viewer** - View and access all mount points and storage devices
-  - Auto-detection of all system mount points
-  - Display device info (name, filesystem type, disk type)
-  - Real-time storage usage monitoring with color-coded progress bars
-  - Quick navigation to mount points
-  - USB/External drive detection with special icon
-  - Cross-platform support (Linux, macOS, Windows)
-  - TUI: Press 'm' to toggle mount points dialog
-  - GUI: Commands → Mount Points menu
+- 🔠 **UI Scale / Font Size Setting** - Pengaturan ukuran font antarmuka tersendiri
+  - Slider 70%-200% (+/− presets) di Theme Selector, persist di AppPrefs
+  - Shortcut Ctrl+= / Ctrl-= dengan feedback status
+- 🔃 **Mount Points Viewer** (dari sesi sebelumnya, belum di-tag)
+  - Menyertakan sistem trash lengkap, persistensi layout eframe/egui
 
-### Dependencies
-- Added `sysinfo` v0.30 for system disk information
-
-
+___________
 ## v0.1.0 - Initial Release
 
 ### Features
