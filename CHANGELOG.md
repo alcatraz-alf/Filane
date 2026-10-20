@@ -46,6 +46,24 @@
 - 🎯 **Go to Containing Folder** - Klik hasil search kini membuka folder induk DAN menempatkan kursor pada item tersebut
   - `Pane::navigate_to_containing()` navigasi + highlight sekaligus (dengan unit test)
 
+## v0.3.3
+
+### New Features
+- 🧩 **Menu bar restrukturisasi**: **File** (operasi file: new/open/clipboard/rename/delete/exit),
+  **View** (toggle checkbox + Themes + Refresh), **⭐ Bookmarks**, **🔧 Tools** (Search/Compare/Mounts),
+  **❓ Help** - menggantikan Files/Commands yang campur aduk (14 item)
+
+### UX Polish
+- 🖱 **Context Menu Dirapikan** - Grup logis + hint shortcut rata kanan + entry Paste + baris Cancel dihapus
+- 🔕 **Toast hanya untuk error/warning** - Pesan status rutin cukup di status bar
+- 🎨 **Theme-aware Palette untuk semua elemen custom** - `Palette` struct per theme (bg/hover/text/accent/
+  semantic); dialogs, toast, help overlay, context menu, sidebar kini ikut Dracula/Nord/Monokai/dll
+  (104 hardcoded call site diganti)
+- 🎨 **Fix: window/panel fill Dark & Light** - Theme Selector, menu bar, side panel tidak lagi jatuh ke
+  default egui #1b1b1b
+- 👁 **Fix: Dual Preview pakai palette** - Header, kolom Left/Right, teks info, placeholder error
+- 🗓 **Fix: header kolom tabel Name/Modified/Size** - ikut theme, tidak lagi hitam konstan
+
 ## v0.3.2
 
 ### New Features
