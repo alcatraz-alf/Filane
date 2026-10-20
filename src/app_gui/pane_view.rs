@@ -464,7 +464,10 @@ impl FileManagerApp {
                         // Name Header
                         header.col(|ui| {
                             let text = format!("Name{}", sort_icon(crate::pane::SortBy::Name));
-                            if ui.add(egui::Button::new(egui::RichText::new(text).strong()).frame(false)).clicked() {
+                            if ui.add(egui::Button::new(egui::RichText::new(text)
+                                    .strong()
+                                    .color(self.palette().text_dim))
+                                .frame(false)).clicked() {
                                 let pane = if pane_index == 0 { &mut self.left_pane } else { &mut self.right_pane };
                                 pane.toggle_sort(crate::pane::SortBy::Name);
                             }
@@ -473,7 +476,10 @@ impl FileManagerApp {
                         // Date Header
                         header.col(|ui| {
                              let text = format!("Modified{}", sort_icon(crate::pane::SortBy::Date));
-                             if ui.add(egui::Button::new(egui::RichText::new(text).strong()).frame(false)).clicked() {
+                             if ui.add(egui::Button::new(egui::RichText::new(text)
+                                    .strong()
+                                    .color(self.palette().text_dim))
+                                .frame(false)).clicked() {
                                  let pane = if pane_index == 0 { &mut self.left_pane } else { &mut self.right_pane };
                                  pane.toggle_sort(crate::pane::SortBy::Date);
                              }
@@ -482,7 +488,10 @@ impl FileManagerApp {
                         // Size Header
                         header.col(|ui| {
                              let text = format!("Size{}", sort_icon(crate::pane::SortBy::Size));
-                             if ui.add(egui::Button::new(egui::RichText::new(text).strong()).frame(false)).clicked() {
+                             if ui.add(egui::Button::new(egui::RichText::new(text)
+                                    .strong()
+                                    .color(self.palette().text_dim))
+                                .frame(false)).clicked() {
                                  let pane = if pane_index == 0 { &mut self.left_pane } else { &mut self.right_pane };
                                  pane.toggle_sort(crate::pane::SortBy::Size);
                              }
