@@ -24,6 +24,9 @@ impl FileManagerApp {
             color: egui::Color32::from_black_alpha(100),
         };
 
+        visuals.panel_fill = egui::Color32::from_rgb(45, 47, 50);
+        visuals.window_fill = egui::Color32::from_rgb(45, 47, 50);
+
         visuals.widgets.noninteractive.bg_fill = egui::Color32::from_rgb(45, 47, 50);
         visuals.widgets.noninteractive.fg_stroke.color = egui::Color32::from_rgb(232, 234, 237);
 
@@ -55,6 +58,9 @@ impl FileManagerApp {
             spread: 0.0,
             color: egui::Color32::from_black_alpha(50),
         };
+
+        visuals.panel_fill = egui::Color32::from_rgb(245, 245, 245);
+        visuals.window_fill = egui::Color32::from_rgb(245, 245, 245);
 
         visuals.widgets.noninteractive.bg_fill = egui::Color32::from_rgb(245, 245, 245);
         visuals.widgets.noninteractive.fg_stroke.color = egui::Color32::from_rgb(50, 50, 50);
