@@ -112,9 +112,9 @@ impl FileManagerApp {
     }
 
     pub(crate) fn render_preview_panel(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        let visuals = ctx.style().visuals.clone();
-        let panel_fill = visuals.panel_fill;
-        let stroke_color = visuals.widgets.noninteractive.bg_fill;
+        let pal = self.palette();
+        let panel_fill = pal.bg;
+        let stroke_color = pal.hover_bg;
         
         egui::Frame::default()
             .fill(panel_fill)
@@ -125,7 +125,12 @@ impl FileManagerApp {
                 ui.set_height(188.0);
 
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("👁 Dual Preview").size(14.0).strong());
+                    ui.label(
+                            egui::RichText::new("👁 Dual Preview")
+                                .size(14.0)
+                                .strong()
+                                .color(self.palette().text),
+                        );
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.small_button("✗").clicked() {
                             self.show_preview_panel = false;
@@ -148,7 +153,12 @@ impl FileManagerApp {
                     // LEFT PREVIEW (fixed width)
                     ui.vertical(|ui| {
                         ui.set_width(preview_width);
-                        ui.label(egui::RichText::new("Left Pane").size(11.0).strong());
+                        ui.label(
+                            egui::RichText::new("Left Pane")
+                                .size(11.0)
+                                .strong()
+                                .color(self.palette().text_dim),
+                        );
                         self.render_preview_content(
                             ui,
                             ctx,
@@ -162,7 +172,12 @@ impl FileManagerApp {
                     // RIGHT PREVIEW (fixed width)
                     ui.vertical(|ui| {
                         ui.set_width(preview_width);
-                        ui.label(egui::RichText::new("Right Pane").size(11.0).strong());
+                        ui.label(
+                            egui::RichText::new("Right Pane")
+                                .size(11.0)
+                                .strong()
+                                .color(self.palette().text_dim),
+                        );
                         self.render_preview_content(
                             ui,
                             ctx,
@@ -222,7 +237,7 @@ impl FileManagerApp {
                     Err(e) => {
                         ui.label(
                             egui::RichText::new(format!("Error: {}", e))
-                                .color(egui::Color32::RED)
+                                .color(self.palette().danger)
                                 .size(10.0),
                         );
                     }
@@ -287,12 +302,12 @@ impl FileManagerApp {
                             ui.label(
                                 egui::RichText::new("PDF preview not available")
                                     .size(9.0)
-                                    .color(egui::Color32::GRAY),
+                                    .color(self.palette().text_dim),
                             );
                             ui.label(
                                 egui::RichText::new("(PDFium library may not be installed)")
                                     .size(8.0)
-                                    .color(egui::Color32::DARK_GRAY),
+                                    .color(self.palette().text_dim),
                             );
                         }
                     });
@@ -338,7 +353,7 @@ impl FileManagerApp {
                 ui.label(
                     egui::RichText::new("No file selected")
                         .size(11.0)
-                        .color(egui::Color32::GRAY),
+                        .color(self.palette().text_dim),
                 );
             });
         }
