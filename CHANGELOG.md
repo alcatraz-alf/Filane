@@ -21,7 +21,7 @@
 ### Dependencies
 - Added `tar` v0.4 dan `flate2` v1.0
 
-## Unreleased
+## v0.3.1
 
 ### New Features
 - ⏸️ **Pause/Resume Operasi** - Progress dialog kini punya tombol Pause/Resume di samping Cancel
@@ -45,6 +45,8 @@
   - Diverifikasi terhadap binding kode aktual
 - 🎯 **Go to Containing Folder** - Klik hasil search kini membuka folder induk DAN menempatkan kursor pada item tersebut
   - `Pane::navigate_to_containing()` navigasi + highlight sekaligus (dengan unit test)
+
+## Unreleased
 - 🗑️ **Delete Permanently (Shift+Delete)** - Hapus tanpa lewat Trash, dengan dialog konfirmasi merah "This cannot be undone!"
   - Context menu: "Delete Permanently" di bawah Delete biasa
   - `delete_selected_items(permanent)` menggantikan `delete_selected_file()`; recursive untuk folder (`remove_dir_all`)
