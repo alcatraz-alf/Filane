@@ -138,12 +138,25 @@ pub fn format_size(size: u64) -> String {
     const MB: u64 = KB * 1024;
     const GB: u64 = MB * 1024;
 
+    // Compact: 1 decimal under 10, whole numbers above — keeps every unit
+    // visible inside the narrow Size table column (ellipsis truncation
+    // used to eat the "KB"/"MB" suffix).
     if size >= GB {
         format!("{:.2} GB", size as f64 / GB as f64)
     } else if size >= MB {
-        format!("{:.2} MB", size as f64 / MB as f64)
+        let mb = size as f64 / MB as f64;
+        if mb < 10.0 {
+            format!("{:.1} MB", mb)
+        } else {
+            format!("{:.0} MB", mb)
+        }
     } else if size >= KB {
-        format!("{:.2} KB", size as f64 / KB as f64)
+        let kb = size as f64 / KB as f64;
+        if kb < 10.0 {
+            format!("{:.1} KB", kb)
+        } else {
+            format!("{:.0} KB", kb)
+        }
     } else {
         format!("{} B", size)
     }

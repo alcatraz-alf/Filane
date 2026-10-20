@@ -438,7 +438,7 @@ impl FileManagerApp {
                     
                     // Calculate column widths to fit within table_width
                     let date_width = 140.0;
-                    let size_width = 90.0;
+                    let size_width = 110.0;
                     let name_width = (table_width - date_width - size_width - 20.0).max(100.0);
                     
                     TableBuilder::new(ui)
