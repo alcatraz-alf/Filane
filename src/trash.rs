@@ -163,7 +163,7 @@ pub fn move_to_trash(path: &Path) -> Result<PathBuf> {
         // Cross-device (EXDEV): the source sits on another filesystem (e.g.
         // a USB drive), so rename cannot reach the home trash. Copy the
         // item, then remove the original.
-        Err(e) if e.raw_os_error() == Some(18) => {
+        Err(e) if crate::filesystem::is_cross_device(&e) => {
             copy_item_to(path, &target)?;
             if path.is_dir() {
                 fs::remove_dir_all(path)
@@ -239,7 +239,7 @@ pub fn restore_from_trash(item_path: &Path) -> Result<PathBuf> {
         Ok(_) => {}
         // Cross-device (EXDEV): the original location sits on another
         // filesystem. Copy the item back, then remove the trash copy.
-        Err(e) if e.raw_os_error() == Some(18) => {
+        Err(e) if crate::filesystem::is_cross_device(&e) => {
             copy_item_to(item_path, &target)?;
             if item_path.is_dir() {
                 fs::remove_dir_all(item_path)
@@ -273,6 +273,11 @@ pub fn is_trash_path(path: &PathBuf) -> bool {
     } else {
         false
     }
+}
+
+/// Whether this platform can move items to a system trash.
+pub fn supported() -> bool {
+    cfg!(any(target_os = "linux", target_os = "macos"))
 }
 
 /// Get human-readable name for the trash

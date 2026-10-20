@@ -1243,6 +1243,11 @@ impl FileManagerApp {
             .map(|item| (item.path.clone(), item.is_dir, item.name.clone()))
             .collect();
 
+        // Trash is not implemented on Windows yet: instead of failing the
+        // whole command, fall back to a permanent delete with a warning.
+        let trash_unavailable = !permanent && !crate::trash::supported();
+        let permanent = permanent || trash_unavailable;
+
         if permanent {
             let mut deleted_count = 0;
             for (path, is_dir, name) in &items_to_delete {
@@ -1265,6 +1270,12 @@ impl FileManagerApp {
             } else {
                 format!("Deleted {} items permanently", deleted_count)
             };
+            if trash_unavailable {
+                self.push_toast(
+                    "Trash is not available on this platform - items were permanently deleted",
+                    ToastKind::Warning,
+                );
+            }
         } else {
             // Move to the OS trash instead of permanently deleting, so the
             // user can recover from accidental deletions.

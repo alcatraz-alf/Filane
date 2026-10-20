@@ -205,6 +205,13 @@ pub fn set_permissions(path: &Path, readonly: bool) -> Result<()> {
 
 /// Return true if the path is a symlink that exists (dangling links report
 /// false in the dir listing and get skipped for sizes).
+/// TRUE when a rename failed because source and destination live on
+/// different filesystems/volumes (EXDEV = 18 on Unix,
+/// ERROR_NOT_SAME_DEVICE = 17 on Windows).
+pub fn is_cross_device(e: &std::io::Error) -> bool {
+    matches!(e.raw_os_error(), Some(17) | Some(18))
+        || e.kind() == std::io::ErrorKind::CrossesDevices
+}
 pub fn is_symlink(path: &Path) -> bool {
     let _ = path;
     #[cfg(unix)]
@@ -620,7 +627,14 @@ fn search_recursive(
             Err(_) => continue,
         };
 
-        let is_dir = metadata.is_dir();
+        // Junction points (Windows) look like directories but looping ones
+        // (e.g. "C:\ProgramData\Application Data") would recurse forever;
+        // treat them as non-directories so the walk can never cycle.
+        let file_type = match entry.file_type() {
+            Ok(t) => t,
+            Err(_) => continue,
+        };
+        let is_dir = file_type.is_dir() && !file_type.is_symlink();
 
         match criteria.file_type {
             SearchFileType::Files if is_dir => {
