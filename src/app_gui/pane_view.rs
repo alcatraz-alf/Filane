@@ -80,7 +80,7 @@ impl FileManagerApp {
                     .add_sized(
                         [95.0, 38.0],
                         egui::Button::new(egui::RichText::new("✗ Exit").size(13.0))
-                            .fill(egui::Color32::from_rgb(184, 51, 63))
+                            .fill(self.palette().danger)
                             .rounding(6.0),
                     )
                     .clicked()
@@ -163,7 +163,7 @@ impl FileManagerApp {
                                 .size(14.0)
                                 .color(egui::Color32::BLACK),
                         )
-                        .fill(egui::Color32::from_rgb(255, 152, 0))
+                        .fill(self.palette().warning)
                         .rounding(8.0),
                     )
                 })
@@ -332,7 +332,7 @@ impl FileManagerApp {
                                     ui.label(
                                         egui::RichText::new("...")
                                             .size(12.0)
-                                            .color(egui::Color32::from_rgb(154, 160, 166)),
+                                            .color(self.palette().text_dim),
                                     );
                                     break;
                                 }
@@ -343,7 +343,7 @@ impl FileManagerApp {
                                         egui::Button::new(
                                             egui::RichText::new(&display_name)
                                                 .size(15.0)
-                                                .color(egui::Color32::from_rgb(138, 180, 248)),
+                                                .color(self.palette().accent),
                                         )
                                         .frame(false),
                                     )
@@ -368,7 +368,7 @@ impl FileManagerApp {
                                     ui.label(
                                         egui::RichText::new("›")
                                             .size(11.0)
-                                            .color(egui::Color32::from_rgb(154, 160, 166)),
+                                            .color(self.palette().text_dim),
                                     );
                                     used_width += 10.0;
                                 }
@@ -526,7 +526,7 @@ impl FileManagerApp {
                                 if item.name == ".." {
                                     ("⬆", egui::Color32::from_rgb(189, 147, 249))
                                 } else {
-                                    ("📁", egui::Color32::from_rgb(255, 184, 108))
+                                    ("📁", self.palette().warning)
                                 }
                             } else {
                                 let ext = item.path.extension().and_then(|e| e.to_str()).unwrap_or("");
@@ -536,12 +536,12 @@ impl FileManagerApp {
                                     "js" | "ts" | "jsx" | "tsx" | "html" | "css" => ("🌐", egui::Color32::from_rgb(240, 219, 79)),
                                     "json" | "yaml" | "toml" | "xml" => ("⚙", egui::Color32::from_rgb(139, 233, 253)),
                                     "md" | "txt" => ("📝", egui::Color32::from_rgb(189, 147, 249)),
-                                    "zip" | "tar" | "gz" | "rar" => ("📦", egui::Color32::from_rgb(255, 121, 198)),
+                                    "zip" | "tar" | "gz" | "rar" => ("📦", self.palette().accent),
                                     "png" | "jpg" | "jpeg" | "gif" => ("🖼", egui::Color32::from_rgb(80, 250, 123)),
                                     "mp3" | "wav" | "ogg" => ("🎵", egui::Color32::from_rgb(139, 233, 253)),
-                                    "mp4" | "avi" | "mov" => ("🎬", egui::Color32::from_rgb(255, 121, 198)),
+                                    "mp4" | "avi" | "mov" => ("🎬", self.palette().accent),
                                     "exe" | "sh" | "bat" => ("⚡", egui::Color32::from_rgb(80, 250, 123)),
-                                    _ => ("📄", egui::Color32::from_rgb(189, 193, 198)),
+                                    _ => ("📄", self.palette().text_dim),
                                 }
                             };
 

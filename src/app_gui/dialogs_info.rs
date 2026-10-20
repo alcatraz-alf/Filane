@@ -12,7 +12,7 @@ impl FileManagerApp {
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .frame(
                     egui::Frame::window(&ctx.style())
-                        .fill(egui::Color32::from_rgb(45, 47, 50))
+                        .fill(self.palette().bg)
                         .rounding(12.0)
                         .inner_margin(25.0),
                 )
@@ -65,7 +65,7 @@ impl FileManagerApp {
                                 egui::RichText::new(*title)
                                     .size(14.0)
                                     .strong()
-                                    .color(egui::Color32::from_rgb(138, 180, 248)),
+                                    .color(self.palette().accent),
                             );
                             ui.separator();
                             for (key, desc) in *rows {
@@ -73,7 +73,7 @@ impl FileManagerApp {
                                     ui.monospace(
                                         egui::RichText::new(*key)
                                             .size(13.0)
-                                            .color(egui::Color32::from_rgb(251, 188, 5)),
+                                            .color(self.palette().warning),
                                     );
                                     ui.label(
                                         egui::RichText::new(" — ").weak(),
@@ -89,7 +89,7 @@ impl FileManagerApp {
                     .add_sized(
                         [140.0, 34.0],
                         egui::Button::new(egui::RichText::new("✗ Close").size(13.0))
-                            .fill(egui::Color32::from_rgb(66, 70, 77)),
+                            .fill(self.palette().hover_bg),
                     )
                     .clicked()
                 {
@@ -110,7 +110,7 @@ impl FileManagerApp {
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .frame(
                     egui::Frame::window(&ctx.style())
-                        .fill(egui::Color32::from_rgb(45, 47, 50))
+                        .fill(self.palette().bg)
                         .rounding(12.0)
                         .inner_margin(25.0),
                 )
@@ -143,14 +143,14 @@ impl FileManagerApp {
                         ui.label(
                             egui::RichText::new("💝 Support this project")
                                 .size(12.0)
-                                .color(egui::Color32::from_rgb(255, 121, 198)),
+                                .color(self.palette().accent),
                         );
                         ui.add_space(5.0);
                         if ui
                             .add_sized(
                                 [200.0, 36.0],
                                 egui::Button::new(egui::RichText::new("☕ Donate via PayPal").size(13.0))
-                                    .fill(egui::Color32::from_rgb(0, 112, 186))
+                                    .fill(self.palette().accent)
                                     .rounding(6.0),
                             )
                             .clicked()
@@ -166,7 +166,7 @@ impl FileManagerApp {
                             .add_sized(
                                 [200.0, 36.0],
                                 egui::Button::new(egui::RichText::new("Close").size(14.0))
-                                    .fill(egui::Color32::from_rgb(66, 133, 244))
+                                    .fill(self.palette().accent)
                                     .rounding(6.0),
                             )
                             .clicked()
@@ -255,7 +255,7 @@ impl FileManagerApp {
                             ui.label(
                                 egui::RichText::new(&zoom_pct)
                                     .size(12.0)
-                                    .color(egui::Color32::from_rgb(251, 188, 5)),
+                                    .color(self.palette().warning),
                             );
                         });
 

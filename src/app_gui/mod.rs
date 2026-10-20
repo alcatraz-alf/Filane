@@ -23,6 +23,8 @@ mod sidebar;
 mod sidebar_panel;
 mod theme;
 
+pub(crate) use theme::Palette;
+
 /// Preferences persisted across app restarts via egui storage.
 #[derive(serde::Serialize, serde::Deserialize)]
 struct AppPrefs {
@@ -173,12 +175,12 @@ impl ToastKind {
         }
     }
 
-    fn color(&self) -> egui::Color32 {
+    fn color(&self, pal: Palette) -> egui::Color32 {
         match self {
-            ToastKind::Info => egui::Color32::from_rgb(138, 180, 248),
-            ToastKind::Success => egui::Color32::from_rgb(129, 201, 149),
-            ToastKind::Warning => egui::Color32::from_rgb(251, 188, 5),
-            ToastKind::Error => egui::Color32::from_rgb(242, 139, 130),
+            ToastKind::Info => pal.accent,
+            ToastKind::Success => pal.success,
+            ToastKind::Warning => pal.warning,
+            ToastKind::Error => pal.danger,
         }
     }
 }
@@ -546,11 +548,11 @@ impl FileManagerApp {
                     })
                     .clamp(0.0, 1.0);
 
-                    let accent = toast.kind.color();
+                    let accent = toast.kind.color(self.palette());
                     // Fade by multiplying colors (Frame has no opacity API)
-                    let fill = egui::Color32::from_rgb(45, 47, 50).gamma_multiply(alpha);
+                    let fill = self.palette().bg.gamma_multiply(alpha);
                     let text_col =
-                        egui::Color32::from_rgb(232, 234, 237).gamma_multiply(alpha);
+                        self.palette().text.gamma_multiply(alpha);
                     egui::Frame::default()
                         .fill(fill)
                         .rounding(8.0)
@@ -583,7 +585,7 @@ impl FileManagerApp {
                                                     .size(12.0)
                                                     .color(text_col),
                                             )
-                                            .fill(egui::Color32::from_rgb(66, 70, 77)),
+                                            .fill(self.palette().hover_bg),
                                         )
                                         .clicked()
                                     {

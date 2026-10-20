@@ -14,7 +14,7 @@ impl FileManagerApp {
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .frame(
                     egui::Frame::window(&ctx.style())
-                        .fill(egui::Color32::from_rgb(45, 47, 50))
+                        .fill(self.palette().bg)
                         .rounding(12.0)
                         .inner_margin(15.0),
                 )
@@ -25,7 +25,7 @@ impl FileManagerApp {
                         ui.label(
                             egui::RichText::new("Available mount points and storage devices")
                                 .size(12.0)
-                                .color(egui::Color32::from_rgb(189, 193, 198)),
+                                .color(self.palette().text_dim),
                         );
 
                         ui.add_space(10.0);
@@ -43,15 +43,15 @@ impl FileManagerApp {
                                     let used = mount.total_space - mount.available_space;
 
                                     let usage_color = if usage > 90.0 {
-                                        egui::Color32::from_rgb(242, 139, 130)
+                                        self.palette().danger
                                     } else if usage > 70.0 {
                                         egui::Color32::from_rgb(255, 193, 7)
                                     } else {
-                                        egui::Color32::from_rgb(129, 201, 149)
+                                        self.palette().success
                                     };
 
                                     egui::Frame::default()
-                                        .fill(egui::Color32::from_rgb(50, 52, 55))
+                                        .fill(self.palette().bg)
                                         .rounding(8.0)
                                         .inner_margin(12.0)
                                         .show(ui, |ui| {
@@ -216,7 +216,7 @@ impl FileManagerApp {
                                         ui.label(
                                             egui::RichText::new("No mount points found")
                                                 .size(14.0)
-                                                .color(egui::Color32::from_rgb(154, 160, 166)),
+                                                .color(self.palette().text_dim),
                                         );
                                     });
                                 }
@@ -236,7 +236,7 @@ impl FileManagerApp {
                                             egui::Button::new(
                                                 egui::RichText::new("Close").size(12.0),
                                             )
-                                            .fill(egui::Color32::from_rgb(66, 70, 77))
+                                            .fill(self.palette().hover_bg)
                                             .rounding(6.0),
                                         )
                                         .clicked()
@@ -265,7 +265,7 @@ impl FileManagerApp {
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .frame(
                     egui::Frame::window(&ctx.style())
-                        .fill(egui::Color32::from_rgb(45, 47, 50))
+                        .fill(self.palette().bg)
                         .rounding(12.0)
                         .inner_margin(20.0),
                 )
@@ -289,7 +289,7 @@ impl FileManagerApp {
                                 self.get_active_pane().current_path.display()
                             ))
                             .size(11.0)
-                            .color(egui::Color32::from_rgb(138, 180, 248)),
+                            .color(self.palette().accent),
                         );
 
                         ui.add_space(15.0);
@@ -298,7 +298,7 @@ impl FileManagerApp {
                                 .add_sized(
                                     [140.0, 36.0],
                                     egui::Button::new(egui::RichText::new("✓ Add").size(14.0))
-                                        .fill(egui::Color32::from_rgb(40, 167, 69))
+                                        .fill(self.palette().success)
                                         .rounding(6.0),
                                 )
                                 .clicked()
@@ -332,7 +332,7 @@ impl FileManagerApp {
                                 .add_sized(
                                     [140.0, 36.0],
                                     egui::Button::new(egui::RichText::new("✗ Cancel").size(14.0))
-                                        .fill(egui::Color32::from_rgb(66, 70, 77))
+                                        .fill(self.palette().hover_bg)
                                         .rounding(6.0),
                                 )
                                 .clicked()

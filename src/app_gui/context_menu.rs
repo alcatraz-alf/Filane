@@ -3,7 +3,9 @@ use egui;
 
 /// Full-width, evenly styled context menu row with an optional right-aligned
 /// keyboard shortcut hint (e.g. "Ctrl+C").
-fn menu_btn(
+impl FileManagerApp {
+    fn menu_btn(
+    &self,
     ui: &mut egui::Ui,
     icon: &str,
     label: &str,
@@ -14,9 +16,9 @@ fn menu_btn(
     let text_color = if danger {
         egui::Color32::from_rgb(240, 146, 138)
     } else {
-        egui::Color32::from_rgb(232, 234, 237)
+        self.palette().text
     };
-    let hint_color = egui::Color32::from_rgb(140, 144, 150);
+    let hint_color = self.palette().text_dim;
 
     egui::Frame::none()
         .inner_margin(egui::Margin::symmetric(8.0, 6.0))
@@ -44,11 +46,13 @@ fn menu_btn(
             let response = ui.interact(rect, egui::Id::new(icon.to_string() + label), egui::Sense::click());
             if response.hovered() {
                 ui.painter()
-                    .rect_filled(rect, 6.0, egui::Color32::from_rgb(66, 70, 77));
+                    .rect_filled(rect, 6.0, self.palette().hover_bg);
             }
             response
         })
         .inner
+}
+
 }
 
 impl FileManagerApp {
@@ -63,7 +67,7 @@ impl FileManagerApp {
                 .order(egui::Order::Foreground)
                 .show(ctx, |ui| {
                     egui::Frame::popup(&ctx.style())
-                        .fill(egui::Color32::from_rgb(45, 47, 50))
+                        .fill(self.palette().bg)
                         .rounding(8.0)
                         .shadow(egui::epaint::Shadow {
                             offset: egui::vec2(0.0, 4.0),
@@ -76,19 +80,19 @@ impl FileManagerApp {
                             ui.set_min_width(240.0);
                             ui.spacing_mut().item_spacing.y = 1.0;
                             ui.style_mut().visuals.widgets.inactive.fg_stroke.color =
-                                egui::Color32::from_rgb(232, 234, 237);
+                                self.palette().text;
 
                             if let Some(item) = &item {
                                 let not_dotdot = item.name != "..";
 
                                 // --- Open group -----------------------------------
                                 if !item.is_dir && not_dotdot {
-                                    if menu_btn(ui, "📄", "Open", Some("F3"), false).clicked() {
+                                    if self.menu_btn(ui, "📄", "Open", Some("F3"), false).clicked() {
                                         let _ = self.open_file_with_default_app();
                                         close_menu = true;
                                     }
                                 }
-                                if menu_btn(ui, "🖥", "Open Terminal Here", Some("Ctrl+T"), false)
+                                if self.menu_btn(ui, "🖥", "Open Terminal Here", Some("Ctrl+T"), false)
                                     .clicked()
                                 {
                                     let _ = self.open_terminal_here();
@@ -99,21 +103,21 @@ impl FileManagerApp {
 
                                 // --- Clipboard / editing group -------------------
                                 if not_dotdot {
-                                    if menu_btn(ui, "📋", "Copy", Some("Ctrl+C"), false).clicked() {
+                                    if self.menu_btn(ui, "📋", "Copy", Some("Ctrl+C"), false).clicked() {
                                         self.copy_to_clipboard();
                                         close_menu = true;
                                     }
-                                    if menu_btn(ui, "✂", "Cut", Some("Ctrl+X"), false).clicked() {
+                                    if self.menu_btn(ui, "✂", "Cut", Some("Ctrl+X"), false).clicked() {
                                         self.cut_to_clipboard();
                                         close_menu = true;
                                     }
                                     if self.clipboard.is_some()
-                                        && menu_btn(ui, "📌", "Paste", Some("Ctrl+V"), false).clicked()
+                                        && self.menu_btn(ui, "📌", "Paste", Some("Ctrl+V"), false).clicked()
                                     {
                                         let _ = self.paste_from_clipboard();
                                         close_menu = true;
                                     }
-                                    if menu_btn(ui, "✏", "Rename", Some("Shift+F2"), false)
+                                    if self.menu_btn(ui, "✏", "Rename", Some("Shift+F2"), false)
                                         .clicked()
                                     {
                                         self.rename_new_name = item.name.clone();
@@ -123,11 +127,11 @@ impl FileManagerApp {
 
                                     // --- Archive group -------------------------------
                                     ui.separator();
-                                    if menu_btn(ui, "🗃", "Compress to ZIP", None, false).clicked() {
+                                    if self.menu_btn(ui, "🗃", "Compress to ZIP", None, false).clicked() {
                                         let _ = self.compress_item(super::ArchiveKind::Zip);
                                         close_menu = true;
                                     }
-                                    if menu_btn(ui, "🗜", "Compress to TAR.GZ", None, false)
+                                    if self.menu_btn(ui, "🗜", "Compress to TAR.GZ", None, false)
                                         .clicked()
                                     {
                                         let _ = self.compress_item(super::ArchiveKind::TarGz);
@@ -137,7 +141,7 @@ impl FileManagerApp {
                                         && (item.name.ends_with(".zip")
                                             || crate::filesystem::is_tar_gz(&item.path)
                                             || crate::filesystem::is_tar(&item.path))
-                                        && menu_btn(ui, "📦", "Extract Archive", None, false)
+                                        && self.menu_btn(ui, "📦", "Extract Archive", None, false)
                                             .clicked()
                                     {
                                         let _ = self.extract_archive();
@@ -146,7 +150,7 @@ impl FileManagerApp {
 
                                     // --- Link ----------------------------------------
                                     #[cfg(unix)]
-                                    if menu_btn(
+                                    if self.menu_btn(
                                         ui,
                                         "🔗",
                                         "Symlink in other pane",
@@ -161,13 +165,13 @@ impl FileManagerApp {
 
                                     // --- Destructive group ---------------------------
                                     ui.separator();
-                                    if menu_btn(ui, "🗑", "Delete", Some("Del"), true).clicked() {
+                                    if self.menu_btn(ui, "🗑", "Delete", Some("Del"), true).clicked() {
                                         self.item_to_delete = Some(item.name.clone());
                                         self.delete_permanently = false;
                                         self.show_delete_confirm = true;
                                         close_menu = true;
                                     }
-                                    if menu_btn(
+                                    if self.menu_btn(
                                         ui,
                                         "🗑",
                                         "Delete Permanently",
@@ -184,7 +188,7 @@ impl FileManagerApp {
 
                                     // --- Info ----------------------------------------
                                     ui.separator();
-                                    if menu_btn(ui, "ℹ", "Properties", None, false).clicked() {
+                                    if self.menu_btn(ui, "ℹ", "Properties", None, false).clicked() {
                                         self.properties_item = Some(item.clone());
                                         self.chmod_input =
                                             crate::filesystem::get_mode_octal(&item.path)
@@ -202,7 +206,7 @@ impl FileManagerApp {
                                     )
                                 {
                                     ui.separator();
-                                    if menu_btn(
+                                    if self.menu_btn(
                                         ui,
                                         "↩",
                                         "Restore to original location",

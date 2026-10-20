@@ -13,13 +13,13 @@ impl FileManagerApp {
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .frame(
                     egui::Frame::window(&ctx.style())
-                        .fill(egui::Color32::from_rgb(45, 47, 50))
+                        .fill(self.palette().bg)
                         .rounding(12.0)
                         .shadow(egui::epaint::Shadow {
                             offset: egui::vec2(0.0, 8.0),
                             blur: 24.0,
                             spread: 0.0,
-                            color: egui::Color32::from_black_alpha(120),
+                            color: self.palette().scrim,
                         })
                         .inner_margin(20.0),
                 )
@@ -29,13 +29,13 @@ impl FileManagerApp {
                         .widgets
                         .noninteractive
                         .fg_stroke
-                        .color = egui::Color32::from_rgb(232, 234, 237);
+                        .color = self.palette().text;
                     ui.vertical_centered(|ui| {
                         ui.add_space(10.0);
                         ui.label(
                             egui::RichText::new("⚠")
                                 .size(48.0)
-                                .color(egui::Color32::from_rgb(251, 188, 5)),
+                                .color(self.palette().warning),
                         );
                         ui.add_space(15.0);
                         ui.label(
@@ -56,16 +56,16 @@ impl FileManagerApp {
                             })
                             .size(12.0)
                             .color(if permanent {
-                                egui::Color32::from_rgb(251, 100, 90)
+                                self.palette().danger
                             } else {
-                                egui::Color32::from_rgb(160, 164, 170)
+                                self.palette().text_dim
                             }),
                         );
                         ui.add_space(8.0);
                         ui.label(
                             egui::RichText::new(&name)
                                 .size(14.0)
-                                .color(egui::Color32::from_rgb(138, 180, 248)),
+                                .color(self.palette().accent),
                         );
                         ui.add_space(20.0);
                         ui.horizontal(|ui| {
@@ -78,7 +78,7 @@ impl FileManagerApp {
                                         "✓  Move to Trash"
                                     })
                                     .size(14.0))
-                                    .fill(egui::Color32::from_rgb(220, 53, 69))
+                                    .fill(self.palette().danger)
                                     .rounding(6.0),
                                 )
                                 .clicked()
@@ -93,7 +93,7 @@ impl FileManagerApp {
                                 .add_sized(
                                     [120.0, 36.0],
                                     egui::Button::new(egui::RichText::new("✗  Cancel").size(14.0))
-                                        .fill(egui::Color32::from_rgb(66, 70, 77))
+                                        .fill(self.palette().hover_bg)
                                         .rounding(6.0),
                                 )
                                 .clicked()
@@ -125,13 +125,13 @@ impl FileManagerApp {
             .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
             .frame(
                 egui::Frame::window(&ctx.style())
-                    .fill(egui::Color32::from_rgb(45, 47, 50))
+                    .fill(self.palette().bg)
                     .rounding(12.0)
                     .shadow(egui::epaint::Shadow {
                         offset: egui::vec2(0.0, 8.0),
                         blur: 24.0,
                         spread: 0.0,
-                        color: egui::Color32::from_black_alpha(120),
+                        color: self.palette().scrim,
                     })
                     .inner_margin(20.0),
             )
@@ -141,7 +141,7 @@ impl FileManagerApp {
                     .widgets
                     .noninteractive
                     .fg_stroke
-                    .color = egui::Color32::from_rgb(232, 234, 237);
+                    .color = self.palette().text;
                 ui.set_min_width(360.0);
                 ui.vertical(|ui| {
                     ui.label(
@@ -169,7 +169,7 @@ impl FileManagerApp {
                             .add_sized(
                                 [130.0, 34.0],
                                 egui::Button::new(egui::RichText::new("⤴  Overwrite").size(13.0))
-                                    .fill(egui::Color32::from_rgb(255, 152, 0))
+                                    .fill(self.palette().warning)
                                     .rounding(6.0),
                             )
                             .clicked()
@@ -180,7 +180,7 @@ impl FileManagerApp {
                             .add_sized(
                                 [130.0, 34.0],
                                 egui::Button::new(egui::RichText::new("✏  Rename").size(13.0))
-                                    .fill(egui::Color32::from_rgb(66, 133, 244))
+                                    .fill(self.palette().accent)
                                     .rounding(6.0),
                             )
                             .clicked()
@@ -195,7 +195,7 @@ impl FileManagerApp {
                             .add_sized(
                                 [130.0, 34.0],
                                 egui::Button::new(egui::RichText::new("⏭  Skip").size(13.0))
-                                    .fill(egui::Color32::from_rgb(66, 70, 77))
+                                    .fill(self.palette().hover_bg)
                                     .rounding(6.0),
                             )
                             .clicked()
@@ -206,7 +206,7 @@ impl FileManagerApp {
                             .add_sized(
                                 [130.0, 34.0],
                                 egui::Button::new(egui::RichText::new("✗  Cancel").size(13.0))
-                                    .fill(egui::Color32::from_rgb(66, 70, 77))
+                                    .fill(self.palette().hover_bg)
                                     .rounding(6.0),
                             )
                             .clicked()
@@ -235,13 +235,13 @@ impl FileManagerApp {
                 };
 
                 let (icon, color) = if let Some(_err) = &snap.error {
-                    ("❌".to_string(), egui::Color32::from_rgb(242, 139, 130))
+                    ("❌".to_string(), self.palette().danger)
                 } else if snap.cancelled {
-                    ("⚠️".to_string(), egui::Color32::from_rgb(251, 188, 5))
+                    ("⚠️".to_string(), self.palette().warning)
                 } else if snap.finished {
-                    ("✅".to_string(), egui::Color32::from_rgb(129, 201, 149))
+                    ("✅".to_string(), self.palette().success)
                 } else {
-                    (snap.kind.icon().to_string(), egui::Color32::from_rgb(138, 180, 248))
+                    (snap.kind.icon().to_string(), self.palette().accent)
                 };
 
                 let err_text = snap.error.clone();
@@ -252,13 +252,13 @@ impl FileManagerApp {
                     .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                     .frame(
                         egui::Frame::window(&ctx.style())
-                            .fill(egui::Color32::from_rgb(45, 47, 50))
+                            .fill(self.palette().bg)
                             .rounding(12.0)
                             .shadow(egui::epaint::Shadow {
                                 offset: egui::vec2(0.0, 8.0),
                                 blur: 24.0,
                                 spread: 0.0,
-                                color: egui::Color32::from_black_alpha(120),
+                                color: self.palette().scrim,
                             })
                             .inner_margin(20.0),
                     )
@@ -268,7 +268,7 @@ impl FileManagerApp {
                             .widgets
                             .noninteractive
                             .fg_stroke
-                            .color = egui::Color32::from_rgb(232, 234, 237);
+                            .color = self.palette().text;
                         ui.set_min_width(420.0);
                         ui.vertical(|ui| {
                             ui.add_space(6.0);
@@ -283,7 +283,7 @@ impl FileManagerApp {
                                 ui.label(
                                     egui::RichText::new(format!("📄 {}", snap.current_file))
                                         .size(12.0)
-                                        .color(egui::Color32::from_rgb(160, 164, 170)),
+                                        .color(self.palette().text_dim),
                                 );
                             }
                             ui.add_space(10.0);
@@ -298,7 +298,7 @@ impl FileManagerApp {
                                         snap.files_done, snap.files_total
                                     ))
                                     .size(12.0)
-                                    .color(egui::Color32::from_rgb(160, 164, 170)),
+                                    .color(self.palette().text_dim),
                                 );
                                 if snap.bytes_total > 0 {
                                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -309,7 +309,7 @@ impl FileManagerApp {
                                                 snap.bytes_total as f64 / 1_048_576.0
                                             ))
                                             .size(12.0)
-                                            .color(egui::Color32::from_rgb(160, 164, 170)),
+                                            .color(self.palette().text_dim),
                                         );
                                     });
                                 }
@@ -329,7 +329,7 @@ impl FileManagerApp {
                                             egui::Button::new(
                                                 egui::RichText::new(pause_label).size(13.0),
                                             )
-                                            .fill(egui::Color32::from_rgb(66, 70, 77))
+                                            .fill(self.palette().hover_bg)
                                             .rounding(6.0),
                                         )
                                         .clicked()
@@ -348,7 +348,7 @@ impl FileManagerApp {
                                             egui::Button::new(
                                                 egui::RichText::new("✗  Cancel").size(13.0),
                                             )
-                                            .fill(egui::Color32::from_rgb(220, 53, 69))
+                                            .fill(self.palette().danger)
                                             .rounding(6.0),
                                         )
                                         .clicked()
@@ -377,7 +377,7 @@ impl FileManagerApp {
                                                 egui::Button::new(
                                                     egui::RichText::new("Close").size(13.0),
                                                 )
-                                                .fill(egui::Color32::from_rgb(66, 70, 77))
+                                                .fill(self.palette().hover_bg)
                                                 .rounding(6.0),
                                             )
                                             .clicked()

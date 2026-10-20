@@ -12,7 +12,7 @@ impl FileManagerApp {
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .frame(
                     egui::Frame::window(&ctx.style())
-                        .fill(egui::Color32::from_rgb(45, 47, 50))
+                        .fill(self.palette().bg)
                         .rounding(12.0)
                         .inner_margin(20.0),
                 )
@@ -183,7 +183,7 @@ impl FileManagerApp {
                                 .add_sized(
                                     [140.0, 36.0],
                                     egui::Button::new(egui::RichText::new("🔍 Search").size(14.0))
-                                        .fill(egui::Color32::from_rgb(66, 133, 244))
+                                        .fill(self.palette().accent)
                                         .rounding(6.0),
                                 )
                                 .clicked()
@@ -229,7 +229,7 @@ impl FileManagerApp {
                                 .add_sized(
                                     [140.0, 36.0],
                                     egui::Button::new(egui::RichText::new("✗ Close").size(14.0))
-                                        .fill(egui::Color32::from_rgb(66, 70, 77))
+                                        .fill(self.palette().hover_bg)
                                         .rounding(6.0),
                                 )
                                 .clicked()
@@ -257,7 +257,7 @@ impl FileManagerApp {
                     .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                     .frame(
                         egui::Frame::window(&ctx.style())
-                            .fill(egui::Color32::from_rgb(45, 47, 50))
+                            .fill(self.palette().bg)
                             .rounding(12.0)
                             .inner_margin(15.0),
                     )
@@ -270,7 +270,7 @@ impl FileManagerApp {
                                 ui.label(
                                     egui::RichText::new(comparison.left_path.display().to_string())
                                         .size(11.0)
-                                        .color(egui::Color32::from_rgb(138, 180, 248)),
+                                        .color(self.palette().accent),
                                 );
                             });
 
@@ -281,7 +281,7 @@ impl FileManagerApp {
                                         comparison.right_path.display().to_string(),
                                     )
                                     .size(11.0)
-                                    .color(egui::Color32::from_rgb(138, 180, 248)),
+                                    .color(self.palette().accent),
                                 );
                             });
 
@@ -293,7 +293,7 @@ impl FileManagerApp {
                                     ui.label(
                                         egui::RichText::new("Files are identical")
                                             .size(14.0)
-                                            .color(egui::Color32::from_rgb(129, 201, 149)),
+                                            .color(self.palette().success),
                                     );
                                 });
                             } else {
@@ -323,12 +323,12 @@ impl FileManagerApp {
                                     ui.label(
                                         egui::RichText::new("🟩 Added")
                                             .size(10.0)
-                                            .color(egui::Color32::from_rgb(129, 201, 149)),
+                                            .color(self.palette().success),
                                     );
                                     ui.label(
                                         egui::RichText::new("🟥 Removed")
                                             .size(10.0)
-                                            .color(egui::Color32::from_rgb(242, 139, 130)),
+                                            .color(self.palette().danger),
                                     );
                                     ui.label(
                                         egui::RichText::new("🟨 Modified")
@@ -347,7 +347,7 @@ impl FileManagerApp {
                                         for diff_line in &comparison.diff_lines {
                                             let (bg_color, icon) = match diff_line.line_type {
                                                 crate::filesystem::DiffLineType::Equal => {
-                                                    (egui::Color32::from_rgb(50, 52, 55), "⬜")
+                                                    (self.palette().bg, "⬜")
                                                 }
                                                 crate::filesystem::DiffLineType::Added => {
                                                     (egui::Color32::from_rgb(40, 80, 40), "🟩")
@@ -438,7 +438,7 @@ impl FileManagerApp {
                                         egui::Button::new(
                                             egui::RichText::new("Close (ESC)").size(14.0),
                                         )
-                                        .fill(egui::Color32::from_rgb(66, 70, 77))
+                                        .fill(self.palette().hover_bg)
                                         .rounding(6.0),
                                     )
                                     .clicked()

@@ -189,7 +189,7 @@ impl FileManagerApp {
                                 egui::RichText::new(text)
                                     .family(egui::FontFamily::Monospace)
                                     .size(10.0)
-                                    .color(egui::Color32::from_rgb(189, 193, 198)),
+                                    .color(self.palette().text_dim),
                             );
                         });
                 }
@@ -245,12 +245,12 @@ impl FileManagerApp {
                                 ui.label(
                                     egui::RichText::new(format!("Size: {} | Pages: {}", size, pages))
                                         .size(9.0)
-                                        .color(egui::Color32::from_rgb(189, 193, 198)),
+                                        .color(self.palette().text_dim),
                                 );
                                 ui.label(
                                     egui::RichText::new(format!("Modified: {}", modified))
                                         .size(9.0)
-                                        .color(egui::Color32::from_rgb(189, 193, 198)),
+                                        .color(self.palette().text_dim),
                                 );
                             });
                         });
@@ -314,19 +314,19 @@ impl FileManagerApp {
                             ui.label(
                                 egui::RichText::new(format!("Size: {}", size))
                                     .size(10.0)
-                                    .color(egui::Color32::from_rgb(189, 193, 198)),
+                                    .color(self.palette().text_dim),
                             );
                             ui.label(
                                 egui::RichText::new(format!("Modified: {}", modified))
                                     .size(10.0)
-                                    .color(egui::Color32::from_rgb(189, 193, 198)),
+                                    .color(self.palette().text_dim),
                             );
                             ui.add_space(2.0);
                             ui.label(
                                 egui::RichText::new(permissions)
                                     .family(egui::FontFamily::Monospace)
                                     .size(9.0)
-                                    .color(egui::Color32::from_rgb(138, 180, 248)),
+                                    .color(self.palette().accent),
                             );
                         });
                     });

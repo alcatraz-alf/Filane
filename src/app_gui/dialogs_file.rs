@@ -13,7 +13,7 @@ impl FileManagerApp {
                     .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                     .frame(
                         egui::Frame::window(&ctx.style())
-                            .fill(egui::Color32::from_rgb(45, 47, 50))
+                            .fill(self.palette().bg)
                             .rounding(12.0)
                             .inner_margin(20.0),
                     )
@@ -22,9 +22,9 @@ impl FileManagerApp {
                             ui.add_space(5.0);
 
                             let (icon, icon_color) = if item.is_dir {
-                                ("📁", egui::Color32::from_rgb(255, 184, 108))
+                                ("📁", self.palette().warning)
                             } else {
-                                ("📄", egui::Color32::from_rgb(189, 193, 198))
+                                ("📄", self.palette().text_dim)
                             };
 
                             ui.horizontal(|ui| {
@@ -68,7 +68,7 @@ impl FileManagerApp {
                                                 ui.add_space(5.0);
                                                 ui.label(
                                                     egui::RichText::new(details).size(11.0).color(
-                                                        egui::Color32::from_rgb(189, 193, 198),
+                                                        self.palette().text_dim,
                                                     ),
                                                 );
                                             });
@@ -144,7 +144,7 @@ impl FileManagerApp {
                                     .add_sized(
                                         [200.0, 36.0],
                                         egui::Button::new(egui::RichText::new("Close").size(14.0))
-                                            .fill(egui::Color32::from_rgb(66, 133, 244))
+                                            .fill(self.palette().accent)
                                             .rounding(6.0),
                                     )
                                     .clicked()
@@ -169,7 +169,7 @@ impl FileManagerApp {
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .frame(
                     egui::Frame::window(&ctx.style())
-                        .fill(egui::Color32::from_rgb(45, 47, 50))
+                        .fill(self.palette().bg)
                         .rounding(12.0)
                         .inner_margin(20.0),
                 )
@@ -191,7 +191,7 @@ impl FileManagerApp {
                                 .add_sized(
                                     [140.0, 36.0],
                                     egui::Button::new(egui::RichText::new("✓ Create").size(14.0))
-                                        .fill(egui::Color32::from_rgb(40, 167, 69))
+                                        .fill(self.palette().success)
                                         .rounding(6.0),
                                 )
                                 .clicked()
@@ -223,7 +223,7 @@ impl FileManagerApp {
                                 .add_sized(
                                     [140.0, 36.0],
                                     egui::Button::new(egui::RichText::new("✗ Cancel").size(14.0))
-                                        .fill(egui::Color32::from_rgb(66, 70, 77))
+                                        .fill(self.palette().hover_bg)
                                         .rounding(6.0),
                                 )
                                 .clicked()
@@ -246,7 +246,7 @@ impl FileManagerApp {
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .frame(
                     egui::Frame::window(&ctx.style())
-                        .fill(egui::Color32::from_rgb(45, 47, 50))
+                        .fill(self.palette().bg)
                         .rounding(12.0)
                         .inner_margin(20.0),
                 )
@@ -276,7 +276,7 @@ impl FileManagerApp {
                                 .add_sized(
                                     [140.0, 36.0],
                                     egui::Button::new(egui::RichText::new("✓ Create").size(14.0))
-                                        .fill(egui::Color32::from_rgb(40, 167, 69))
+                                        .fill(self.palette().success)
                                         .rounding(6.0),
                                 )
                                 .clicked()
@@ -313,7 +313,7 @@ impl FileManagerApp {
                                 .add_sized(
                                     [140.0, 36.0],
                                     egui::Button::new(egui::RichText::new("✗ Cancel").size(14.0))
-                                        .fill(egui::Color32::from_rgb(66, 70, 77))
+                                        .fill(self.palette().hover_bg)
                                         .rounding(6.0),
                                 )
                                 .clicked()
@@ -336,7 +336,7 @@ impl FileManagerApp {
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .frame(
                     egui::Frame::window(&ctx.style())
-                        .fill(egui::Color32::from_rgb(45, 47, 50))
+                        .fill(self.palette().bg)
                         .rounding(12.0)
                         .inner_margin(20.0),
                 )
@@ -357,7 +357,7 @@ impl FileManagerApp {
                                 .add_sized(
                                     [140.0, 36.0],
                                     egui::Button::new(egui::RichText::new("✓ Rename").size(14.0))
-                                        .fill(egui::Color32::from_rgb(40, 167, 69))
+                                        .fill(self.palette().success)
                                         .rounding(6.0),
                                 )
                                 .clicked()
@@ -395,7 +395,7 @@ impl FileManagerApp {
                                 .add_sized(
                                     [140.0, 36.0],
                                     egui::Button::new(egui::RichText::new("✗ Cancel").size(14.0))
-                                        .fill(egui::Color32::from_rgb(66, 70, 77))
+                                        .fill(self.palette().hover_bg)
                                         .rounding(6.0),
                                 )
                                 .clicked()

@@ -16,14 +16,14 @@ impl FileManagerApp {
                         } else {
                             "▶"
                         };
-                        if ui.add_sized([24.0, 24.0], egui::Button::new(egui::RichText::new(arrow).size(14.0).color(egui::Color32::from_rgb(100, 150, 255))).frame(false)).clicked() {
+                        if ui.add_sized([24.0, 24.0], egui::Button::new(egui::RichText::new(arrow).size(14.0).color(self.palette().accent)).frame(false)).clicked() {
                             self.sidebar_quick_access_expanded = !self.sidebar_quick_access_expanded;
                         }
                         ui.label(
                             egui::RichText::new("QUICK ACCESS")
                                 .size(13.0)
                                 .strong()
-                                .color(egui::Color32::from_rgb(154, 160, 166)),
+                                .color(self.palette().text_dim),
                         );
                     });
 
@@ -59,14 +59,14 @@ impl FileManagerApp {
                         } else {
                             "▶"
                         };
-                        if ui.add_sized([24.0, 24.0], egui::Button::new(egui::RichText::new(arrow).size(14.0).color(egui::Color32::from_rgb(100, 150, 255))).frame(false)).clicked() {
+                        if ui.add_sized([24.0, 24.0], egui::Button::new(egui::RichText::new(arrow).size(14.0).color(self.palette().accent)).frame(false)).clicked() {
                             self.sidebar_bookmarks_expanded = !self.sidebar_bookmarks_expanded;
                         }
                         ui.label(
                             egui::RichText::new("BOOKMARKS")
                                 .size(13.0)
                                 .strong()
-                                .color(egui::Color32::from_rgb(154, 160, 166)),
+                                .color(self.palette().text_dim),
                         );
 
                         // Add button positioned to the right
@@ -137,14 +137,14 @@ impl FileManagerApp {
                         } else {
                             "▶"
                         };
-                        if ui.add_sized([24.0, 24.0], egui::Button::new(egui::RichText::new(arrow).size(14.0).color(egui::Color32::from_rgb(100, 150, 255))).frame(false)).clicked() {
+                        if ui.add_sized([24.0, 24.0], egui::Button::new(egui::RichText::new(arrow).size(14.0).color(self.palette().accent)).frame(false)).clicked() {
                             self.sidebar_devices_expanded = !self.sidebar_devices_expanded;
                         }
                         ui.label(
                             egui::RichText::new("DEVICES")
                                 .size(13.0)
                                 .strong()
-                                .color(egui::Color32::from_rgb(154, 160, 166)),
+                                .color(self.palette().text_dim),
                         );
                     });
 
