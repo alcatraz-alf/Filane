@@ -1,3 +1,8 @@
+## v0.3.7
+
+### Fixed (Windows)
+- 🐛 **Klik exe membuka console blank** - `dual-pane-fm-gui.exe` tidak punya deklarasi `windows_subsystem`, sehingga Windows membuka console window kosong di belakang GUI. Ditambah `#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]` di `src/bin/gui.rs`.
+
 ## v0.3.6
 
 ### Fixed (Windows)

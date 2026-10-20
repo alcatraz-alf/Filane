@@ -1,3 +1,4 @@
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 use dual_pane_fm::app_gui::FileManagerApp;
 
 fn main() -> eframe::Result<()> {
